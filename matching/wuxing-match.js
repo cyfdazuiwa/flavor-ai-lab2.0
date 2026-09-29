@@ -172,6 +172,9 @@
     saveChat(matchId, msgs);
     bus.post({ type: 'chat', matchId: matchId, msg: msg });
     renderChat();
+    // 收到对方（或机器人）新消息时，刷新接话建议
+    var me = getMe();
+    if (msg.from !== 'system' && (!me || msg.from !== me.uid)) renderAiChips();
   }
 
   // 刷新当前打开的聊天消息区
@@ -212,6 +215,15 @@
    * 五、五行生克匹配引擎
    * ================================================================ */
 
+  // 性别期望硬性校验：任一方期望与对方性别不符则不撮合（保密=不设限）
+  function genderCompatible(a, b) {
+    function ok(seeker, target) {
+      if (seeker === 'any' || target === 'secret') return true;
+      return seeker === target;
+    }
+    return ok(a.seekGender || 'any', b.gender) && ok(b.seekGender || 'any', a.gender);
+  }
+
   // 计算两人之间的关系与合拍度
   function pairScore(a, b) {
     var da = a.dominant, db = b.dominant;
@@ -246,6 +258,21 @@
       score += 2; reasons.push('偏好不同，靠五行缘分补足');
     }
 
+    // 性别期望契合
+    var gdBonus = 0;
+    [[a.seekGender, b.gender], [b.seekGender, a.gender]].forEach(function (pair) {
+      if (pair[0] !== 'any' && pair[1] !== 'secret') gdBonus += pair[0] === pair[1] ? 6 : 0;
+    });
+    if (gdBonus > 0) { score += gdBonus; reasons.push('性别期待相符，第一眼就对味'); }
+
+    // 年龄相近度
+    if (a.age && b.age) {
+      var gap = Math.abs(a.age - b.age);
+      if (gap <= 3) { score += 4; reasons.push('年龄相仿（' + a.age + ' 岁 & ' + b.age + ' 岁），有共同话题'); }
+      else if (gap <= 8) { score += 2; }
+      else if (gap > 15) { score -= 4; reasons.push('年龄有些差距，恰好互补'); }
+    }
+
     // 温度互补 / 气泡投缘
     var temps = [a.temp, b.temp];
     if (temps.indexOf('温热') > -1 && temps.indexOf('清冷') > -1) {
@@ -265,6 +292,7 @@
     var pairs = [];
     for (var i = 0; i < waiting.length; i++) {
       for (var j = i + 1; j < waiting.length; j++) {
+        if (!genderCompatible(waiting[i], waiting[j])) continue; // 性别期望不符，不予撮合
         var r = pairScore(waiting[i], waiting[j]);
         if (r.score >= MATCH_THRESHOLD) pairs.push({ a: waiting[i], b: waiting[j], r: r });
       }
@@ -398,6 +426,21 @@
     + '.wxm-orb{width:52px;height:52px;border:2px solid #2C2C2C;display:flex;align-items:center;justify-content:center;font-family:"Noto Serif SC","Songti SC",serif;font-size:24px;font-weight:700;color:#fff;flex:none}'
     + '.wxm-field{margin-top:14px}'
     + '.wxm-field label{font-size:11px;color:#A8A29E;letter-spacing:.1em;display:block;margin-bottom:6px}'
+    + '.wxm-chip-row{display:flex;gap:8px}'
+    + '.wxm-chip{flex:1;text-align:center;border:2px solid #2C2C2C;background:#fff;padding:9px 4px;font-size:13px;font-weight:700;color:#2C2C2C;cursor:pointer;transition:all .15s}'
+    + '.wxm-chip:hover{background:#F0F5F3}'
+    + '.wxm-chip.sel{background:#2C2C2C;color:#fff}'
+    + '.wxm-age{flex:none;width:92px;display:flex;align-items:center;justify-content:center;gap:2px;border:2px solid #2C2C2C;background:#fff}'
+    + '.wxm-age input{width:38px;border:none;outline:none;font-size:15px;font-weight:700;text-align:center;background:transparent;color:#2C2C2C;font-family:inherit}'
+    + '.wxm-age span{font-size:11px;color:#A8A29E}'
+    + '.wxm-gd{display:inline-block;font-size:10px;font-weight:700;border:1.5px solid #2C2C2C;padding:1px 6px;background:#fff;color:#2C2C2C;margin-left:4px}'
+    + '.wxm-ai{border-top:2px solid #2C2C2C;background:#F0F5F3;padding:8px 10px 10px}'
+    + '.wxm-ai .hd{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.1em;color:#5E8B7E;font-weight:700}'
+    + '.wxm-ai .hd button{border:1.5px solid #5E8B7E;background:#fff;color:#5E8B7E;font-size:10px;font-weight:700;padding:3px 8px;cursor:pointer}'
+    + '.wxm-ai .hd button:hover{background:#5E8B7E;color:#fff}'
+    + '.wxm-ai-chips{display:flex;flex-direction:column;gap:6px;margin-top:8px}'
+    + '.wxm-ai-chip{text-align:left;border:1.5px solid #2C2C2C;background:#fff;padding:7px 10px;font-size:12px;color:#2C2C2C;cursor:pointer;line-height:1.5;font-family:inherit}'
+    + '.wxm-ai-chip:hover{background:#2C2C2C;color:#fff}'
     + '.wxm-input{width:100%;box-sizing:border-box;border:2px solid #2C2C2C;background:#fff;padding:10px 12px;font-size:13px;color:#2C2C2C;font-family:inherit;outline:none}'
     + '.wxm-input:focus{box-shadow:3px 3px 0 rgba(44,44,44,.25)}'
     + '.wxm-foot{display:flex;gap:10px;margin-top:18px}'
@@ -576,11 +619,31 @@
     return '<span class="' + (size ? 'wxm-mini-orb' : 'wxm-orb') + '" style="background:' + c + '">' + esc(elChar(member.dominant)) + '</span>';
   }
 
+  // 性别·年龄展示文本
+  function gdText(m) {
+    if (!m) return '';
+    var g = m.gender === 'male' ? '♂' : m.gender === 'female' ? '♀' : '🔒';
+    return g + (m.age ? ' ' + m.age + '岁' : '');
+  }
+
   /* ---------- 面板 1：填写匹配偏好 ---------- */
+
+  var GENDERS = [
+    { id: 'male', label: '男', emoji: '♂' },
+    { id: 'female', label: '女', emoji: '♀' },
+    { id: 'secret', label: '保密', emoji: '🔒' }
+  ];
+  var SEEK = [
+    { id: 'any', label: '不限' },
+    { id: 'male', label: '男生' },
+    { id: 'female', label: '女生' }
+  ];
 
   function renderPrefPanel(sheet) {
     var p = state.pendingProfile;
     var sel = p.pref || 'friend';
+    var gd = p.gender || 'secret';
+    var seek = p.seekGender || 'any';
     sheet.innerHTML = ''
       + '<button class="wxm-x" data-close="1">✕</button>'
       + '<div class="wxm-pad">'
@@ -599,11 +662,26 @@
       + '      </div>'
       + '    </div>'
       + '  </div>'
+      + '  <div class="wxm-field"><label>你的性别与年龄</label>'
+      + '    <div class="wxm-chip-row" id="wxm-gd-row">'
+      + GENDERS.map(function (g) {
+        return '<button type="button" class="wxm-chip' + (g.id === gd ? ' sel' : '') + '" data-gd="' + g.id + '">' + g.emoji + ' ' + g.label + '</button>';
+      }).join('')
+      + '      <span class="wxm-age"><input id="wxm-age" type="number" min="14" max="99" placeholder="年龄" value="' + (p.age || '') + '" /><span>岁</span></span>'
+      + '    </div>'
+      + '  </div>'
       + '  <div class="wxm-field"><label>你想找什么样的有缘人？</label>'
       + '    <div class="wxm-prefs">' + PREFS.map(function (pf) {
         return '<div class="wxm-pref' + (pf.id === sel ? ' sel' : '') + '" data-pref="' + pf.id + '">'
           + '<div class="e">' + pf.emoji + '</div><div class="t">' + pf.label + '</div><div class="d">' + pf.desc + '</div></div>';
       }).join('') + '    </div>'
+      + '  </div>'
+      + '  <div class="wxm-field"><label>希望对方是（性别期望，会参与匹配）</label>'
+      + '    <div class="wxm-chip-row" id="wxm-seek-row">'
+      + SEEK.map(function (g) {
+        return '<button type="button" class="wxm-chip' + (g.id === seek ? ' sel' : '') + '" data-seek="' + g.id + '">' + g.label + '</button>';
+      }).join('')
+      + '    </div>'
       + '  </div>'
       + '  <div class="wxm-field"><label>一句话签名（可选，展示给有缘人）</label>'
       + '    <input class="wxm-input" id="wxm-tagline" maxlength="24" placeholder="例：想找一位木行人一起看展 ☕" />'
@@ -620,8 +698,24 @@
         $$('.wxm-pref', sheet).forEach(function (x) { x.classList.toggle('sel', x === el); });
       });
     });
+    $$('#wxm-gd-row .wxm-chip', sheet).forEach(function (el) {
+      el.addEventListener('click', function () {
+        gd = el.getAttribute('data-gd');
+        $$('#wxm-gd-row .wxm-chip', sheet).forEach(function (x) { x.classList.toggle('sel', x === el); });
+      });
+    });
+    $$('#wxm-seek-row .wxm-chip', sheet).forEach(function (el) {
+      el.addEventListener('click', function () {
+        seek = el.getAttribute('data-seek');
+        $$('#wxm-seek-row .wxm-chip', sheet).forEach(function (x) { x.classList.toggle('sel', x === el); });
+      });
+    });
     $('#wxm-join', sheet).addEventListener('click', function () {
       p.pref = sel;
+      p.gender = gd;
+      p.seekGender = seek;
+      var age = parseInt($('#wxm-age', sheet).value, 10);
+      p.age = (age >= 14 && age <= 99) ? age : null;
       p.tagline = ($('#wxm-tagline', sheet).value || '').trim().slice(0, 24);
       joinPool(p);
     });
@@ -672,7 +766,8 @@
           + '<div class="wxm-card" style="margin-top:12px;background:' + EL_META[partner.dominant].bgLight + '">'
           + '  <div class="wxm-profile-row">' + orbHtml(partner)
           + '    <div style="min-width:0;flex:1">'
-          + '      <div style="font-size:15px;font-weight:700;color:#2C2C2C">🎉 有缘人已出现：' + esc(partner.name) + '</div>'
+          + '      <div style="font-size:15px;font-weight:700;color:#2C2C2C">🎉 有缘人已出现：' + esc(partner.name)
+          + '        <span class="wxm-gd">' + esc(gdText(partner)) + '</span></div>'
           + '      <div style="font-size:11px;color:#6b6560;margin-top:2px">纳音 · ' + esc(partner.nayin) + ' ｜ ' + esc(partner.drink) + '</div>'
           + '      <div style="font-size:11px;margin-top:4px;color:' + elColor(partner.dominant) + ';font-weight:700">' + esc(match.relation.label) + ' · 合拍 ' + match.score + '%</div>'
           + '    </div>'
@@ -695,7 +790,7 @@
       others.forEach(function (m) {
         html += '<div class="wxm-pool-item">' + orbHtml(m, 1)
           + '<div style="flex:1;min-width:0"><div class="n">' + esc(m.name) + (m.bot ? ' <span style="font-size:9px;color:#A8A29E">·演示</span>' : '') + '</div>'
-          + '<div class="m">' + elChar(m.dominant) + '行 · ' + esc(m.nayin) + ' · 找' + PREF_LABEL[m.pref] + '</div></div>'
+          + '<div class="m">' + elChar(m.dominant) + '行 · ' + esc(m.nayin) + ' · 找' + PREF_LABEL[m.pref] + ' · ' + esc(gdText(m)) + '</div></div>'
           + '<span class="wxm-tag" style="font-size:9px">' + (m.state === 'matched' ? '已匹配' : '等待中') + '</span></div>';
       });
     }
@@ -753,7 +848,7 @@
       + '    <div style="text-align:center">'
       + orbHtml(me)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(me.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(me.drink) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(me.drink) + '<br/>' + esc(gdText(me)) + '</div>'
       + '    </div>'
       + '    <div class="wxm-ring">'
       + '      <svg width="92" height="92">'
@@ -765,7 +860,7 @@
       + '    <div style="text-align:center">'
       + orbHtml(partner)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(partner.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(partner.drink) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(partner.drink) + '<br/>' + esc(gdText(partner)) + '</div>'
       + '    </div>'
       + '  </div>'
       + '  <div style="margin-top:18px"><span class="wxm-rel" style="color:' + c + ';border-color:' + c + '">' + esc(match.relation.label) + '</span></div>'
@@ -781,6 +876,101 @@
     confetti($('#wxm-confetti-box', sheet));
     $('#wxm-chat-now', sheet).addEventListener('click', function () { openPanel('chat', match.id); });
     $('#wxm-wait', sheet).addEventListener('click', closePanel);
+  }
+
+  /* ---------- AI 话题助手 ---------- */
+
+  // 依据五行关系、双方档案与聊天上下文生成话题建议（纯前端规则引擎，不依赖外部服务）
+  function aiSuggest(match, me, partner, msgs, offset) {
+    var bag = [];
+    var rel = match.relation.label.split(' ·')[0];
+    var type = match.relation.type;
+    var mineCount = msgs.filter(function (m) { return m.from === me.uid; }).length;
+    var last = null;
+    for (var i = msgs.length - 1; i >= 0; i--) {
+      var m = msgs[i];
+      if (m.from !== me.uid && m.from !== 'system') { last = m; break; }
+    }
+
+    if (mineCount === 0) {
+      // —— 破冰开场 ——
+      bag.push(
+        '你好呀！天机说我们' + rel + '，合拍 ' + match.score + '%，冒个泡认识一下 👋',
+        'Hi～看到你的本命饮品是' + partner.drink + '，我的是' + me.drink + '，一看就很搭',
+        (partner.tagline ? '签名写「' + partner.tagline + '」的人感觉很有意思！' : '你好呀，初次见面！') +
+          (partner.pref === 'meal' ? '有什么私藏美食推荐吗？🍜' : partner.pref === 'study' ? '最近在忙什么？一起打卡呀 📚' : '平时都喜欢做些什么？'),
+        type === 'sheng' ? '听说' + rel + '的人特别聊得来，来验证一下？😄' : '同为' + elChar(me.dominant) + '行人，感觉我们会是同类人',
+        '我先开个头：用三个词形容自己，你会选哪三个？'
+      );
+    } else if (last) {
+      // —— 接对方的话 ——
+      var t = last.text || '';
+      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t)) {
+        bag.push('问到点了！我的答案是……不过我想先听听你的版本 😄', '哈哈让我想想～我觉得挺好的，你呢？');
+      }
+      if (/喝|茶|奶茶|咖啡|饮品|饮料|可乐/.test(t)) {
+        bag.push('提到喝的我可就来劲了，下次约一杯？我知道' + me.drink + '很好喝的店 🧋', '看来我们对喝的品味很一致，改天一起探店呀');
+      }
+      if (/吃|饭|美食|好吃|店|饿/.test(t)) {
+        bag.push('说到吃的我最有发言权，周末一起干饭？🍜', '我收藏了好几家店，就差一个饭搭子了（疯狂暗示）');
+      }
+      if (/学|忙|累|工作|加班|考试|作业/.test(t)) {
+        bag.push('辛苦啦～累了就歇会儿，我陪你聊聊天 ☕', '忙归忙，也要记得按时喝水休息呀');
+      }
+      if (/哈哈|嘻嘻|笑|😂|🤣|乐死/.test(t)) {
+        bag.push('哈哈哈哈跟你聊天太轻松了', '你还挺有意思的 😆 这波我接住了');
+      }
+      if (/再见|回聊|晚安|拜拜|先走/.test(t)) {
+        bag.push('嗯嗯回见～五行有缘，后会有期 🌙', '拜拜，今天聊得很开心！');
+      }
+      if (bag.length === 0) {
+        bag.push(
+          '嗯嗯有同感！对了，你平时有什么爱好？',
+          '这个话题有意思，你是怎么想到的？',
+          '感觉和你聊天特别顺，难怪五行' + rel,
+          '哈哈哈同意！那你周末一般怎么过？',
+          '说起来，你觉得这个测试准不准？我觉得' + elChar(me.dominant) + '行还挺像我的'
+        );
+      }
+      // 邀约收尾（按我的偏好）
+      bag.push(
+        me.pref === 'meal' ? '对了，周末有空吗？找家店一起干饭呀 🍜'
+          : me.pref === 'study' ? '要不要约个自习，互相监督打卡？📚'
+          : me.pref === 'friend' ? '聊得这么投缘，找个时间线下见一面？☕'
+          : '有缘的话，找个时间一起喝杯' + me.drink + '？🌌'
+      );
+    }
+
+    // 去重后按批次轮换，每次取 3 条
+    var seen = {}, list = [];
+    bag.forEach(function (x) {
+      if (!seen[x]) { seen[x] = 1; list.push(x); }
+    });
+    var out = [];
+    for (var k = 0; k < list.length && out.length < 3; k++) {
+      out.push(list[(offset * 3 + k) % list.length]);
+    }
+    return out;
+  }
+
+  function renderAiChips() {
+    var box = $('#wxm-ai-chips');
+    var me = getMe(), match = getMyMatch();
+    if (!box || !me || !match) return;
+    var partner = partnerOf(match);
+    if (!partner) return;
+    var tips = aiSuggest(match, me, partner, getChat(match.id), state.aiOffset || 0);
+    box.innerHTML = tips.map(function (t) {
+      return '<button type="button" class="wxm-ai-chip">' + esc(t) + '</button>';
+    }).join('');
+    $$('.wxm-ai-chip', box).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var input = $('#wxm-chat-input');
+        if (!input) return;
+        input.value = el.textContent;
+        input.focus();
+      });
+    });
   }
 
   /* ---------- 面板 4：聊天 ---------- */
@@ -800,14 +990,18 @@
       + orbHtml(partner || { dominant: me.dominant }, 1)
       + '    <div style="flex:1;min-width:0">'
       + '      <div class="t">' + esc(partner ? partner.name : '有缘人') + '</div>'
-      + '      <div class="s">' + esc(match.relation.label.split(' ·')[0]) + ' · 合拍 ' + match.score + '% ｜ ' + esc(partner ? partner.nayin : '') + '</div>'
+      + '      <div class="s">' + esc(match.relation.label.split(' ·')[0]) + ' · 合拍 ' + match.score + '% ｜ ' + esc(gdText(partner || {})) + ' ｜ ' + esc(partner ? partner.nayin : '') + '</div>'
       + '    </div>'
       + (ended ? '' : '<button class="wxm-send" id="wxm-chat-end" style="background:transparent;border-color:#fff;font-size:11px;padding:7px 10px">结束聊天</button>')
       + '  </div>'
       + '  <div class="wxm-chat-body" id="wxm-chat-body"></div>'
       + (ended
         ? '<div class="wxm-ended">🌿 ' + (iEnded ? '你已结束这段聊天' : '对方已结束这段聊天') + '<br/><span style="font-size:10px;color:#A8A29E">五行流转，缘分不散 · 有缘再会</span></div>'
-        : '<div class="wxm-endbar"><span class="hint">善意交流 · 随时可结束</span></div>'
+        : '<div class="wxm-ai" id="wxm-ai-bar">'
+        + '  <div class="hd"><span>✨ AI 话题助手 · 依五行与上下文点拨</span><button id="wxm-ai-more">换一批</button></div>'
+        + '  <div class="wxm-ai-chips" id="wxm-ai-chips"></div>'
+        + '</div>'
+        + '<div class="wxm-endbar"><span class="hint">点击建议可填入输入框 · 随时可结束</span></div>'
         + '<div class="wxm-chat-foot">'
         + '  <input id="wxm-chat-input" maxlength="120" placeholder="说点什么…" />'
         + '  <button class="wxm-send" id="wxm-chat-send">发送</button>'
@@ -820,6 +1014,13 @@
     $('#wxm-chat-back', sheet).addEventListener('click', function () { openPanel('pool'); });
 
     if (!ended) {
+      // AI 话题助手
+      state.aiOffset = 0;
+      renderAiChips();
+      $('#wxm-ai-more', sheet).addEventListener('click', function () {
+        state.aiOffset = (state.aiOffset || 0) + 1;
+        renderAiChips();
+      });
       var input = $('#wxm-chat-input', sheet);
       var send = function () {
         var text = (input.value || '').trim();
@@ -987,6 +1188,13 @@
       var i = namePool.indexOf(m.name);
       if (i > -1) namePool.splice(i, 1);
     });
+    // 性别尽量贴合我的期望，年龄贴近我，保证演示撮合顺利
+    var gender = pick(['male', 'female']);
+    var age = randInt(19, 35);
+    if (guaranteed && me) {
+      if (me.seekGender === 'male' || me.seekGender === 'female') gender = me.seekGender;
+      if (me.age) age = Math.max(16, Math.min(60, me.age + randInt(-4, 4)));
+    }
     var bot = {
       uid: uid(),
       name: namePool.length ? pick(namePool) : '有缘人' + randInt(10, 99),
@@ -998,6 +1206,9 @@
       temp: drink.temp,
       bubble: drink.bubble,
       pref: pick(['friend', 'study', 'meal', 'suiyuan']),
+      gender: gender,
+      age: age,
+      seekGender: 'any',
       tagline: '',
       bot: true,
       state: 'waiting',
@@ -1108,6 +1319,9 @@
       temp: temp,
       bubble: bubble,
       pref: (prev && prev.pref) || 'friend',
+      gender: (prev && prev.gender) || 'secret',
+      age: (prev && prev.age) || null,
+      seekGender: (prev && prev.seekGender) || 'any',
       tagline: (prev && prev.tagline) || '',
       bot: false,
       state: 'idle',

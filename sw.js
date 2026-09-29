@@ -1,5 +1,5 @@
 // Service Worker - 缓存静态资源，实现二次访问秒开
-const CACHE_NAME = 'flavor-ai-lab-v2';
+const CACHE_NAME = 'flavor-ai-lab-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
