@@ -33,16 +33,33 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 拦截请求，优先从缓存读取
+// 拦截请求：页面导航走网络优先（部署后刷新即见新版），静态资源走缓存优先
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
+
   // 只缓存同源请求和 CDN 资源
   if (url.origin !== self.location.origin && !url.host.includes('cdn.jsdelivr.net')) {
     return;
   }
-  
+
+  // HTML 导航请求：网络优先，离线才回退缓存（避免更新后看到旧页面）
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, networkResponse.clone());
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       // 缓存命中，直接返回
@@ -57,19 +74,19 @@ self.addEventListener('fetch', (event) => {
         }).catch(() => {});
         return cachedResponse;
       }
-      
+
       // 缓存未命中，从网络获取
       return fetch(request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
         }
-        
+
         // 缓存新资源
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(request, responseToCache);
         });
-        
+
         return networkResponse;
       });
     })
