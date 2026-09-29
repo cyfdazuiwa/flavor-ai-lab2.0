@@ -11,10 +11,51 @@
     <!-- CDN 预连接，加速资源加载 -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <!-- CDN 不可达时兜底：将 jsdelivr 资源重写到本地同名文件（仓库内已包含全部素材） -->
+    <script>
+      (function () {
+        var CDN = 'https://cdn.jsdelivr.net/gh/cyfdazuiwa/flavor-ai-lab@main/';
+        function rewrite(url) {
+          if (typeof url === 'string' && url.indexOf(CDN) === 0) return './' + url.slice(CDN.length);
+          return url;
+        }
+        var desc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+        Object.defineProperty(HTMLImageElement.prototype, 'src', {
+          set: function (v) { desc.set.call(this, rewrite(v)); },
+          get: function () { return desc.get.call(this); }
+        });
+        var OrigAudio = window.Audio;
+        window.Audio = function (url) { return new OrigAudio(rewrite(url)); };
+        window.Audio.prototype = OrigAudio.prototype;
+      })();
+    </script>
     <!-- 首屏关键图片预加载 -->
     <link rel="preload" as="image" href="https://cdn.jsdelivr.net/gh/cyfdazuiwa/flavor-ai-lab@main/images/intro-animation.gif">
     <script type="module" crossorigin src="./assets/index-D_HQT8R9.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-DoybfhkN.css">
+    <!-- rAF 兜底：后台/被遮挡的标签页中 requestAnimationFrame 会暂停，GSAP 动画 onComplete
+         永不触发、答题流程卡死。GSAP 在模块初始化时即捕获原生 rAF 引用，因此不能事后替换，
+         需探测到停摆后打标记并自动重载，重载后的页面在应用脚本执行前同步安装兜底 -->
+    <script>
+      (function () {
+        function install() {
+          window.requestAnimationFrame = function (cb) {
+            return setTimeout(function () { cb(performance.now()); }, 16);
+          };
+          window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+        }
+        try {
+          if (sessionStorage.getItem('wx_raf_fb') === '1') { install(); return; }
+        } catch (e) { return; }
+        var fired = false;
+        requestAnimationFrame(function () { fired = true; });
+        setTimeout(function () {
+          if (fired) return;
+          try { sessionStorage.setItem('wx_raf_fb', '1'); } catch (e) { return; }
+          location.reload();
+        }, 700);
+      })();
+    </script>
     <!-- html2canvas 截图库改为 defer，不阻塞首屏 -->
     <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <!-- 图片懒加载 -->
@@ -201,6 +242,8 @@
     <div id="root"></div>
     <script src="./override-screenshot.js"></script>
     <script src="./print-card-v3.js"></script>
+    <!-- 五行有缘人匹配池模块 -->
+    <script defer src="./matching/wuxing-match.js"></script>
     <script>
       // 注册 Service Worker
       if ('serviceWorker' in navigator) {
