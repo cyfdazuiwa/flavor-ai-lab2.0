@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=430, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#F7F5F0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>五行纳音 · 本命饮品</title>
+    <meta name="description" content="基于五行相生相克与纳音理论，为你匹配专属饮品与最佳伴侣" />
+    <!-- CDN 预连接，加速资源加载 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <!-- 首屏关键图片预加载 -->
+    <link rel="preload" as="image" href="https://cdn.jsdelivr.net/gh/cyfdazuiwa/flavor-ai-lab@main/images/intro-animation.gif">
+    <script type="module" crossorigin src="./assets/index-D_HQT8R9.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DoybfhkN.css">
+    <!-- html2canvas 截图库改为 defer，不阻塞首屏 -->
+    <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- 图片懒加载 -->
+    <script>
+      // 全局图片懒加载
+      document.addEventListener('DOMContentLoaded', () => {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const img = entry.target;
+              if (img.dataset.src) {
+                img.src = img.dataset.src;
+                img.removeAttribute('data-src');
+              }
+              observer.unobserve(img);
+            }
+          });
+        }, {
+          rootMargin: '50px 0px',
+          threshold: 0.01
+        });
+        
+        // 观察所有图片
+        const observeImages = () => {
+          document.querySelectorAll('img[data-src], img[src*="cdn.jsdelivr"]').forEach(img => {
+            if (!img.dataset.src && img.src) {
+              img.dataset.src = img.src;
+              // 根据图片位置决定是否立即加载首屏图片
+              const rect = img.getBoundingClientRect();
+              const isInViewport = rect.top < window.innerHeight + 100;
+              if (!isInViewport) {
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+              }
+            }
+            imageObserver.observe(img);
+          });
+        };
+        
+        observeImages();
+        // 动态内容加载后继续观察
+        new MutationObserver(observeImages).observe(document.body, { childList: true, subtree: true });
+      });
+    </script>
+    <style>
+      /* 电脑端居中显示手机版 */
+      @media (min-width: 431px) {
+        html {
+          background: #e5e5e5;
+          display: flex;
+          justify-content: center;
+          min-height: 100vh;
+        }
+        body {
+          width: 430px;
+          max-width: 430px;
+          background: #F7F5F0;
+          box-shadow: 0 0 20px rgba(0,0,0,0.1);
+          min-height: 100vh;
+        }
+      }
+      /* 去掉图片白色圆形背景 */
+      img {
+        background: transparent !important;
+        border-radius: 0 !important;
+      }
+      /* 针对可能有背景容器的图片 */
+      img[src*="char-"] {
+        background: none !important;
+        background-color: transparent !important;
+      }
+    </style>
+    <!-- Umami Analytics -->
+    <script defer src="https://umami-production-35ec.up.railway.app/script.js" data-website-id="c594553c-1c3f-40b4-8d8a-f83705159a47"></script>
+    <!-- 追踪用户结果页 -->
+    <script>
+      // 12种饮品列表（用于匹配）
+      const DRINKS = [
+        '青柚乌龙', '松针青梅', '赤霞血橙', '暖姜红茶',
+        '海盐白桃', '椰青荔枝', '玄米柠檬', '燕麦可可',
+        '茉莉汤力', '轻咖汤力', '青桔乳酸', '紫苏话梅'
+      ];
+      
+      // 发送追踪事件
+      function sendTrack(drinkName, nayin) {
+        console.log('🎯 Tracking result:', drinkName, nayin);
+        
+        // 方式1：umami.track（Umami v2+）
+        if (typeof umami !== 'undefined' && umami.track) {
+          umami.track('result_view', {
+            drink: drinkName,
+            nayin: nayin
+          });
+          console.log('✓ Sent via umami.track');
+          return;
+        }
+        
+        // 方式2：umami.trackEvent（Umami v1）
+        if (typeof umami !== 'undefined' && umami.trackEvent) {
+          umami.trackEvent('result_view', { drink: drinkName, nayin: nayin });
+          console.log('✓ Sent via umami.trackEvent');
+          return;
+        }
+        
+        // 方式3：直接发送 beacon（备用）
+        const payload = {
+          type: 'event',
+          payload: {
+            website: 'c594553c-1c3f-40b4-8d8a-f83705159a47',
+            hostname: 'cyfdazuiwa.github.io',
+            screen: window.screen.width + 'x' + window.screen.height,
+            language: navigator.language,
+            title: document.title,
+            url: window.location.pathname,
+            referrer: document.referrer,
+            event_name: 'result_view',
+            event_data: JSON.stringify({ drink: drinkName, nayin: nayin })
+          }
+        };
+        
+        fetch('https://umami-production-35ec.up.railway.app/api/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).then(() => {
+          console.log('✓ Sent via fetch API');
+        }).catch(err => {
+          console.error('✗ Failed to send:', err);
+        });
+      }
+      
+      // 检查并追踪结果页
+      function trackResult() {
+        const bodyText = document.body.innerText;
+        
+        // 查找饮品名称
+        for (const drink of DRINKS) {
+          if (bodyText.includes(drink) && bodyText.includes('纳音：')) {
+            // 提取纳音
+            const nayinMatch = bodyText.match(/纳音：(.+)/);
+            const nayin = nayinMatch ? nayinMatch[1].trim() : 'unknown';
+            
+            // 避免重复追踪
+            if (window._lastTrackedDrink !== drink) {
+              window._lastTrackedDrink = drink;
+              sendTrack(drink, nayin);
+            }
+            return;
+          }
+        }
+      }
+      
+      // 等待 Umami 脚本加载完成
+      function initTracking() {
+        console.log('🔍 Init tracking...');
+        
+        // 立即检查一次
+        trackResult();
+        
+        // 延迟检查（等待 React 渲染）
+        setTimeout(trackResult, 2000);
+        setTimeout(trackResult, 4000);
+      }
+      
+      // 页面加载后初始化
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTracking);
+      } else {
+        initTracking();
+      }
+      
+      // 监听 URL 变化（SPA 路由）
+      let lastUrl = location.href;
+      new MutationObserver(() => {
+        const url = location.href;
+        if (url !== lastUrl) {
+          lastUrl = url;
+          window._lastTrackedDrink = null;
+          setTimeout(trackResult, 2000);
+        }
+      }).observe(document, { subtree: true, childList: true });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="./override-screenshot.js"></script>
+    <script src="./print-card-v3.js"></script>
+    <script>
+      // 注册 Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+              console.log('SW registered:', registration.scope);
+            })
+            .catch((error) => {
+              console.log('SW registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
