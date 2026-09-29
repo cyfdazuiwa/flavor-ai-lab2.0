@@ -199,8 +199,8 @@
     if (bc) bc.onmessage = function (e) { listeners.forEach(function (fn) { fn(e.data); }); };
     // storage 事件兜底（BroadcastChannel 不可用时）
     window.addEventListener('storage', function (e) {
-      if (!bc && e.key === KEYS.ver && e.newValue) {
-        listeners.forEach(function (fn) { fn({ type: 'pool-changed' }); });
+      if (!bc && e.newValue && (e.key === KEYS.ver || e.key === COMM.ver)) {
+        listeners.forEach(function (fn) { fn({ type: e.key === COMM.ver ? 'community' : 'pool-changed' }); });
       }
     });
     return {
@@ -210,6 +210,97 @@
       }
     };
   })();
+
+  /* ================================================================
+   * 四·五、大模型接入（可选，OpenAI 兼容接口）
+   * ================================================================ */
+
+  var LLM_KEY = 'wuxing_llm_v1';
+
+  function llmCfg() { return readJSON(localStorage, LLM_KEY, null); }
+  function llmSave(cfg) { writeJSON(localStorage, LLM_KEY, cfg); }
+  function llmEnabled() {
+    var c = llmCfg();
+    return !!(c && c.baseUrl && c.apiKey && c.model);
+  }
+  // 调用 OpenAI 兼容 /chat/completions
+  function llmChat(messages, maxTokens) {
+    var c = llmCfg();
+    var url = (c.baseUrl || '').replace(/\/+$/, '') + '/chat/completions';
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey },
+      body: JSON.stringify({ model: c.model, messages: messages, temperature: 0.9, max_tokens: maxTokens || 150 })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (d) {
+      var txt = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+      if (!txt) throw new Error('empty');
+      return String(txt).trim();
+    });
+  }
+  // 聊天人设 system prompt
+  function personaSystem(match, me, partner) {
+    var rel = match.relation.label.split(' ·')[0];
+    var g = partner.gender === 'male' ? '男' : partner.gender === 'female' ? '女' : '性别保密';
+    var mg = me.gender === 'male' ? '男' : me.gender === 'female' ? '女' : '性别保密';
+    return '你在一个名为「五行纳音 · 本命饮品」的社交应用里，扮演与对方匹配成功的有缘人，进行轻松自然的中文闲聊。'
+      + '你的人设：' + partner.name + '，' + g + (partner.age ? partner.age + '岁' : '') + '，五行属' + elChar(partner.dominant) + '，纳音' + partner.nayin + '，本命饮品「' + partner.drink + '」，正在找' + (PREF_LABEL[partner.pref] || '朋友') + '。'
+      + '对方：' + me.name + '，' + mg + (me.age ? me.age + '岁' : '') + '，五行属' + elChar(me.dominant) + '，本命饮品「' + me.drink + '」，想找' + (PREF_LABEL[me.pref] || '朋友') + (me.tagline ? '，签名是「' + me.tagline + '」' : '') + '。'
+      + '你们的关系：' + rel + '，合拍度' + match.score + '%。'
+      + '聊天要求：口语化、自然友好；每次只回1-2句话，总共不超过40字；可以适当用emoji；不要连续反问；绝不要暴露自己是AI或程序；不要出现敏感内容。';
+  }
+  // 把本地聊天记录转成 LLM 对话
+  function chatToMessages(match, me, partner, msgs) {
+    var recent = msgs.filter(function (m) { return m.from !== 'system'; }).slice(-8);
+    var out = [];
+    recent.forEach(function (m) {
+      out.push({ role: m.from === partner.uid ? 'assistant' : 'user', content: m.text });
+    });
+    if (!out.length) out.push({ role: 'user', content: '（对方刚打开聊天，还没说话）' });
+    return out;
+  }
+
+  /* ================================================================
+   * 四·六、五行社区数据层
+   * ================================================================ */
+
+  var COMM = { key: 'wuxing_community_v1', ver: 'wuxing_community_ver_v1' };
+
+  function getCommunity() { return readJSON(localStorage, COMM.key, { posts: [] }); }
+  function saveCommunity(c) { writeJSON(localStorage, COMM.key, c); }
+  function updateCommunity(mutator) {
+    var c = getCommunity();
+    var result = mutator(c);
+    if (result === false) return false;
+    saveCommunity(c);
+    try { localStorage.setItem(COMM.ver, String(now())); } catch (e) {}
+    bus.post({ type: 'community' });
+    return true;
+  }
+  // 首次访问注入演示内容，让社区不冷场
+  function seedCommunity() {
+    if (localStorage.getItem(COMM.key)) return;
+    var hoursAgo = function (h) { return now() - h * 3600 * 1000; };
+    var demo = [
+      { element: 'wood', uid: 'seed-w1', name: '青梧', gender: 'female', age: 24, drink: '青柚乌龙', nayin: '杨柳木', dominant: 'wood', text: '木行人集合 🌿 找学习搭子：目标每天图书馆打卡 2 小时，坚持 21 天，来组队！', at: hoursAgo(3), likes: ['seed-w2', 'seed-e1'], comments: [
+        { id: 'c1', uid: 'seed-w2', name: '竹西', dominant: 'wood', gender: 'male', age: 22, text: '+1，我在备考，一起互相监督！', at: hoursAgo(2) }
+      ] },
+      { element: 'fire', uid: 'seed-f1', name: '赤霞', gender: 'male', age: 27, drink: '赤霞血橙', nayin: '天上火', dominant: 'fire', text: '火行兄弟看过来 🔥 周六城市越野跑，哪里野去哪里，评论区报名接龙', at: hoursAgo(6), likes: ['seed-w1', 'seed-m1', 'seed-e1', 'seed-w2', 'seed-a1'], comments: [] },
+      { element: 'earth', uid: 'seed-e1', name: '厚土', gender: 'secret', age: 31, drink: '燕麦可可', nayin: '城头土', dominant: 'earth', text: '土行人日常：不卷不躺，安稳踏实。分享一句最近很治愈的话——慢慢来，比较快。', at: hoursAgo(10), likes: ['seed-w1', 'seed-f1', 'seed-m1', 'seed-a1', 'seed-w2', 'seed-f2', 'seed-m2', 'seed-e2'], comments: [
+        { id: 'c2', uid: 'seed-e2', name: '小满', dominant: 'earth', gender: 'female', age: 28, text: '戳中我了，最近正焦虑，谢谢 🙏', at: hoursAgo(8) }
+      ] },
+      { element: 'metal', uid: 'seed-m1', name: '白露', gender: 'female', age: 23, drink: '茉莉汤力', nayin: '钗钏金', dominant: 'metal', text: '金行精致下午茶报告 ☕ 试遍全城的茉莉汤力，有一家最像「本命」，想知道的评论区见', at: hoursAgo(14), likes: ['seed-f1', 'seed-w1'], comments: [
+        { id: 'c3', uid: 'seed-m2', name: '阿银', dominant: 'metal', gender: 'male', age: 25, text: '求地址！', at: hoursAgo(12) },
+        { id: 'c4', uid: 'seed-m1', name: '白露', dominant: 'metal', gender: 'female', age: 23, text: '私信发你～记得带上你的本命饮品截图，有折扣', at: hoursAgo(11) }
+      ] },
+      { element: 'water', uid: 'seed-a1', name: '沉璧', gender: 'male', age: 29, drink: '海盐白桃', nayin: '大海水', dominant: 'water', text: '水行人深夜电台 🌊 最近单曲循环一首古琴曲，越听越静，推荐给同频的你', at: hoursAgo(20), likes: ['seed-e1', 'seed-w1', 'seed-f2', 'seed-m2'], comments: [] },
+      { element: 'wood', uid: 'seed-w2', name: '望舒', gender: 'female', age: 26, drink: '松针青梅', nayin: '松柏木', dominant: 'wood', text: '有没有也是「松柏木」的？都说我们坚韧，但谁懂坚持背后的累啊 😂', at: hoursAgo(26), likes: ['seed-w1'], comments: [] }
+    ];
+    saveCommunity({ posts: demo });
+    try { localStorage.setItem(COMM.ver, String(now())); } catch (e) {}
+  }
 
   /* ================================================================
    * 五、五行生克匹配引擎
@@ -441,6 +532,45 @@
     + '.wxm-ai-chips{display:flex;flex-direction:column;gap:6px;margin-top:8px}'
     + '.wxm-ai-chip{text-align:left;border:1.5px solid #2C2C2C;background:#fff;padding:7px 10px;font-size:12px;color:#2C2C2C;cursor:pointer;line-height:1.5;font-family:inherit}'
     + '.wxm-ai-chip:hover{background:#2C2C2C;color:#fff}'
+    + '.wxm-ai-tag{font-size:10px;color:#5E8B7E;margin-bottom:2px}'
+    + '#wxm-fab-comm{position:fixed;right:16px;bottom:72px;z-index:9997;display:none;align-items:center;gap:8px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:9px 15px;font-size:13px;font-weight:700;letter-spacing:.08em;cursor:pointer;box-shadow:4px 4px 0 rgba(44,44,44,.22);font-family:inherit}'
+    + '#wxm-fab-comm:hover{background:#2C2C2C;color:#fff}'
+    + '#wxm-fab-comm.show{display:flex}'
+    + '.wxm-chan-row{display:flex;gap:6px;margin:14px 0 4px}'
+    + '.wxm-chan{flex:1;border:2px solid #2C2C2C;background:#fff;padding:7px 0;text-align:center;font-size:15px;font-weight:700;color:#2C2C2C;cursor:pointer;font-family:"Noto Serif SC",serif}'
+    + '.wxm-chan .c{display:block;font-size:9px;font-weight:400;color:#A8A29E;font-family:"Noto Sans SC",sans-serif;margin-top:1px}'
+    + '.wxm-chan.sel{color:#fff}'
+    + '.wxm-chan.sel .c{color:rgba(255,255,255,.7)}'
+    + '.wxm-composer{background:#fff;border:2px solid #2C2C2C;padding:10px;margin-top:10px}'
+    + '.wxm-composer textarea{width:100%;box-sizing:border-box;border:none;outline:none;resize:none;font-size:13px;color:#2C2C2C;font-family:inherit;min-height:52px;background:transparent}'
+    + '.wxm-composer .row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px}'
+    + '.wxm-composer .hint{font-size:10px;color:#A8A29E}'
+    + '.wxm-composer .row .btns{display:flex;gap:6px}'
+    + '.wxm-mini-btn{border:1.5px solid #2C2C2C;background:#fff;color:#2C2C2C;font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;font-family:inherit}'
+    + '.wxm-mini-btn:hover{background:#2C2C2C;color:#fff}'
+    + '.wxm-mini-btn.pri{background:#2C2C2C;color:#fff}'
+    + '.wxm-mini-btn.pri:hover{background:#4a4a4a}'
+    + '.wxm-post{background:#fff;border:2px solid #2C2C2C;padding:12px;margin-top:10px}'
+    + '.wxm-post .head{display:flex;align-items:center;gap:8px}'
+    + '.wxm-post .head .n{font-size:13px;font-weight:700;color:#2C2C2C}'
+    + '.wxm-post .head .m{font-size:10px;color:#A8A29E;margin-top:1px}'
+    + '.wxm-post .head .t{margin-left:auto;font-size:9px;color:#C6C1BA;flex:none}'
+    + '.wxm-post .body{font-size:13px;color:#2C2C2C;line-height:1.7;margin-top:8px;word-break:break-word;white-space:pre-wrap}'
+    + '.wxm-post .acts{display:flex;gap:14px;margin-top:10px;padding-top:8px;border-top:1.5px dashed #E5E1DA}'
+    + '.wxm-post .acts button{border:none;background:none;font-size:11px;color:#A8A29E;cursor:pointer;font-family:inherit;padding:0;font-weight:700}'
+    + '.wxm-post .acts button:hover{color:#2C2C2C}'
+    + '.wxm-post .acts button.on{color:#C75B39}'
+    + '.wxm-comments{margin-top:8px;background:#F7F5F0;border:1.5px solid #EFEDE8;padding:8px 10px}'
+    + '.wxm-comments .cmt{font-size:11px;color:#2C2C2C;line-height:1.6;padding:3px 0}'
+    + '.wxm-comments .cmt b{font-weight:700}'
+    + '.wxm-comments .cmt .el{font-size:9px;border:1px solid #D6D3CE;color:#A8A29E;padding:0 4px;margin:0 4px}'
+    + '.wxm-cmt-row{display:flex;gap:6px;margin-top:8px}'
+    + '.wxm-cmt-row input{flex:1;border:1.5px solid #2C2C2C;padding:6px 8px;font-size:11px;outline:none;background:#fff;font-family:inherit;color:#2C2C2C}'
+    + '.wxm-cmt-row button{border:1.5px solid #2C2C2C;background:#2C2C2C;color:#fff;font-size:11px;padding:6px 10px;cursor:pointer;flex:none;font-family:inherit}'
+    + '.wxm-empty{text-align:center;font-size:11px;color:#A8A29E;padding:18px 0;line-height:1.8}'
+    + '.wxm-llm-state{font-size:11px;color:#6b6560;margin-top:8px;line-height:1.7}'
+    + '.wxm-llm-state b.on{color:#5E8B7E}'
+    + '.wxm-llm-state b.off{color:#C75B39}'
     + '.wxm-input{width:100%;box-sizing:border-box;border:2px solid #2C2C2C;background:#fff;padding:10px 12px;font-size:13px;color:#2C2C2C;font-family:inherit;outline:none}'
     + '.wxm-input:focus{box-shadow:3px 3px 0 rgba(44,44,44,.25)}'
     + '.wxm-foot{display:flex;gap:10px;margin-top:18px}'
@@ -529,6 +659,12 @@
     fab.addEventListener('click', function () { openPanel('pool'); });
     document.body.appendChild(fab);
 
+    var fabComm = document.createElement('button');
+    fabComm.id = 'wxm-fab-comm';
+    fabComm.innerHTML = '🏯 五行社区';
+    fabComm.addEventListener('click', function () { openPanel('community'); });
+    document.body.appendChild(fabComm);
+
     var toast = document.createElement('div');
     toast.className = 'wxm-toast';
     toast.id = 'wxm-toast';
@@ -611,6 +747,8 @@
     else if (state.panel === 'pool') renderPoolPanel(sheet);
     else if (state.panel === 'match') renderMatchPanel(sheet);
     else if (state.panel === 'chat') renderChatPanel(sheet);
+    else if (state.panel === 'community') renderCommunityPanel(sheet);
+    else if (state.panel === 'llm') renderLlmPanel(sheet);
     else sheet.innerHTML = '';
   }
 
@@ -797,6 +935,7 @@
     html += '</div>';
 
     html += '<div class="wxm-foot" style="flex-direction:column">';
+    html += '<button class="wxm-btn ghost slim" id="wxm-llm-entry">' + (llmEnabled() ? '🤖 大模型已接入：' + esc(llmCfg().model) : '🤖 接入真实大模型（聊天更聪明）') + '</button>';
     html += '<button class="wxm-btn ghost slim" id="wxm-summon">✦ 邀请一位有缘人入池（演示）</button>';
     html += '<button class="wxm-btn ghost slim" id="wxm-leave">离开匹配池</button>';
     html += '</div>';
@@ -821,6 +960,7 @@
     if (go) go.addEventListener('click', function () { openPanel('chat', match.id); });
     var endm = $('#wxm-endmatch', sheet);
     if (endm) endm.addEventListener('click', function () { endMatch(match.id, true); });
+    $('#wxm-llm-entry', sheet).addEventListener('click', function () { openPanel('llm'); });
     $('#wxm-summon', sheet).addEventListener('click', function () {
       summonBot(true);
       toast('✦ 一位有缘人正在入池…');
@@ -959,18 +1099,41 @@
     if (!box || !me || !match) return;
     var partner = partnerOf(match);
     if (!partner) return;
-    var tips = aiSuggest(match, me, partner, getChat(match.id), state.aiOffset || 0);
-    box.innerHTML = tips.map(function (t) {
-      return '<button type="button" class="wxm-ai-chip">' + esc(t) + '</button>';
-    }).join('');
-    $$('.wxm-ai-chip', box).forEach(function (el) {
-      el.addEventListener('click', function () {
-        var input = $('#wxm-chat-input');
-        if (!input) return;
-        input.value = el.textContent;
-        input.focus();
+    var msgs = getChat(match.id);
+
+    var render = function (tips, tag) {
+      box.innerHTML = (tag ? '<div class="wxm-ai-tag">' + esc(tag) + '</div>' : '') + tips.map(function (t) {
+        return '<button type="button" class="wxm-ai-chip">' + esc(t) + '</button>';
+      }).join('');
+      $$('.wxm-ai-chip', box).forEach(function (el) {
+        el.addEventListener('click', function () {
+          var input = $('#wxm-chat-input');
+          if (!input) return;
+          input.value = el.textContent;
+          input.focus();
+        });
       });
-    });
+    };
+
+    if (llmEnabled()) {
+      box.innerHTML = '<div class="wxm-ai-tag">✦ 大模型正在为你斟酌话题…</div>';
+      var convo = msgs.filter(function (m) { return m.from !== 'system'; }).slice(-8)
+        .map(function (m) { return (m.from === me.uid ? '我：' : '对方：') + m.text; }).join('\n') || '（还没有对话）';
+      llmChat([
+        { role: 'system', content: personaSystem(match, me, partner) + '\n现在请你切换角色：不替对方回复，而是作为「话题助手」帮 ' + me.name + ' 想出3条发给对方的回复建议。要求：每条不超过30字，口语化，可带emoji，风格自然不尴尬。只输出一个JSON数组，格式如 ["建议一","建议二","建议三"]，不要输出其他内容。' },
+        { role: 'user', content: '最近的聊天记录：\n' + convo + '\n请给出3条回复建议。' }
+      ], 220).then(function (txt) {
+        var marr = txt.match(/\[[\s\S]*?\]/);
+        var arr = marr ? JSON.parse(marr[0]) : null;
+        var tips = Array.isArray(arr) ? arr.filter(function (x) { return typeof x === 'string' && x.length; }).slice(0, 3) : null;
+        if (tips && tips.length) render(tips, '✦ 由 ' + llmCfg().model + ' 生成');
+        else render(aiSuggest(match, me, partner, msgs, state.aiOffset || 0));
+      }).catch(function () {
+        render(aiSuggest(match, me, partner, msgs, state.aiOffset || 0));
+      });
+    } else {
+      render(aiSuggest(match, me, partner, msgs, state.aiOffset || 0));
+    }
   }
 
   /* ---------- 面板 4：聊天 ---------- */
@@ -1066,10 +1229,20 @@
     body.scrollTop = body.scrollHeight;
   }
 
+  // 本地模拟回复（未接入大模型或调用失败时兜底）
+  function localBotLine(match, partner) {
+    var relTxt = match.relation.label.split(' ·')[0];
+    return pick(BOT_LINES.chat)
+      .replace('{name}', partner.drink)
+      .replace('{rel}', relTxt)
+      .replace('{nayin}', partner.nayin)
+      .replace('{pref}', PREF_LABEL[partner.pref] || '缘分');
+  }
+
   function scheduleBotReply(match, partner) {
     if (!partner || !partner.bot) return;
     var me = getMe();
-    var replyDelay = randInt(1400, 3000);
+    var replyDelay = randInt(700, 1500);
     setTimeout(function () {
       var live = getMatches().filter(function (m) { return m.id === match.id; })[0];
       if (!live || live.endedAt) return;
@@ -1078,19 +1251,245 @@
       typing.className = 'wxm-typing';
       typing.innerHTML = '<i></i><i></i><i></i>';
       if (body && state.panel === 'chat' && state.matchId === match.id) { body.appendChild(typing); body.scrollTop = body.scrollHeight; }
-      setTimeout(function () {
+      var done = false;
+      var finish = function (text) {
+        if (done) return;
+        done = true;
+        if (typing.isConnected) typing.remove();
         var live2 = getMatches().filter(function (m) { return m.id === match.id; })[0];
         if (!live2 || live2.endedAt) return;
-        typing.remove();
-        var relTxt = live2.relation.label.split(' ·')[0];
-        var line = pick(BOT_LINES.chat)
-          .replace('{name}', partner.drink)
-          .replace('{rel}', relTxt)
-          .replace('{nayin}', partner.nayin)
-          .replace('{pref}', PREF_LABEL[partner.pref] || '缘分');
-        appendChat(match.id, { from: partner.uid, name: partner.name, text: line, at: now() });
-      }, randInt(900, 1600));
+        appendChat(match.id, { from: partner.uid, name: partner.name, text: text, at: now() });
+      };
+      if (llmEnabled()) {
+        // 真实大模型：以有缘人人设续写对话
+        var messages = [{ role: 'system', content: personaSystem(live, me, partner) }]
+          .concat(chatToMessages(live, me, partner, getChat(match.id)));
+        llmChat(messages, 80).then(finish).catch(function () {
+          finish(localBotLine(live, partner));
+        });
+        // 15 秒超时兜底
+        setTimeout(function () { finish(localBotLine(live, partner)); }, 15000);
+      } else {
+        setTimeout(function () { finish(localBotLine(live, partner)); }, randInt(900, 1600));
+      }
     }, replyDelay);
+  }
+
+  /* ---------- 面板 5：五行社区 ---------- */
+
+  function fmtPostTime(ts) {
+    var d = now() - ts;
+    if (d < 60 * 1000) return '刚刚';
+    if (d < 3600 * 1000) return Math.floor(d / 60000) + ' 分钟前';
+    if (d < 24 * 3600 * 1000) return Math.floor(d / 3600000) + ' 小时前';
+    return Math.floor(d / 86400000) + ' 天前';
+  }
+
+  function renderCommunityPanel(sheet) {
+    var me = getMe();
+    var channel = state.channel || (me && me.dominant) || 'wood';
+    state.channel = channel;
+    var c = getCommunity();
+    var posts = c.posts.filter(function (p) { return p.element === channel; })
+      .slice().sort(function (a, b) { return b.at - a.at; });
+
+    var tabsHtml = ELS.map(function (el) {
+      var n = c.posts.filter(function (p) { return p.element === el; }).length;
+      return '<button type="button" class="wxm-chan' + (el === channel ? ' sel' : '') + '" data-el="' + el + '" style="' + (el === channel ? 'background:' + elColor(el) + ';border-color:' + elColor(el) : '') + '">'
+        + elChar(el) + '<span class="c">' + n + ' 帖</span></button>';
+    }).join('');
+
+    var composer = '';
+    if (me) {
+      composer = '<div class="wxm-composer">'
+        + '<textarea id="wxm-post-text" maxlength="200" placeholder="在「' + elChar(channel) + '行社区」说点什么… 发布后同频的人都能看到"></textarea>'
+        + '<div class="row"><span class="hint">以 ' + esc(me.name) + '（' + elChar(me.dominant) + '行）的身份发帖</span>'
+        + '<span class="btns">'
+        + '<button type="button" class="wxm-mini-btn" id="wxm-post-ai">✨AI 代写</button>'
+        + '<button type="button" class="wxm-mini-btn pri" id="wxm-post-send">发帖</button>'
+        + '</span></div></div>';
+    } else {
+      composer = '<div class="wxm-empty">完成五行测试后即可发帖互动<br/>当前可自由浏览各社区</div>';
+    }
+
+    var feed = posts.map(function (p) {
+      var liked = me && p.likes.indexOf(me.uid) > -1;
+      var cmts = (p.comments || []).map(function (cm) {
+        return '<div class="cmt"><b>' + esc(cm.name) + '</b><span class="el">' + elChar(cm.dominant) + '</span>' + esc(cm.text) + '</div>';
+      }).join('');
+      return '<div class="wxm-post" data-id="' + p.id + '">'
+        + '<div class="head">' + orbHtml(p, 1)
+        + '<div><div class="n">' + esc(p.name) + ' <span class="wxm-gd">' + esc(gdText(p)) + '</span></div>'
+        + '<div class="m">' + elChar(p.dominant) + '行 · ' + esc(p.drink) + '</div></div>'
+        + '<span class="t">' + fmtPostTime(p.at) + '</span></div>'
+        + '<div class="body">' + esc(p.text) + '</div>'
+        + '<div class="acts">'
+        + '<button type="button" class="wxm-like' + (liked ? ' on' : '') + '" data-act="like">' + (liked ? '❤️' : '🤍') + ' ' + p.likes.length + '</button>'
+        + '<button type="button" data-act="cmt-toggle">💬 ' + (p.comments || []).length + '</button>'
+        + '</div>'
+        + ((p.comments || []).length ? '<div class="wxm-comments">' + cmts + '</div>' : '')
+        + (me ? '<div class="wxm-cmt-row" style="display:none"><input maxlength="80" placeholder="友善评论…" /><button type="button" data-act="cmt-send">评论</button></div>' : '')
+        + '</div>';
+    }).join('');
+
+    sheet.innerHTML = ''
+      + '<button class="wxm-x" data-close="1">✕</button>'
+      + '<div class="wxm-pad">'
+      + '<div class="wxm-title">五行社区</div>'
+      + '<div class="wxm-sub">按本命五行分社区 · 同频的人都在这里发帖互动</div>'
+      + '<div class="wxm-chan-row">' + tabsHtml + '</div>'
+      + composer
+      + '<div id="wxm-feed">' + (feed || '<div class="wxm-empty">这个社区还没有帖子<br/>来抢占第一层楼吧 ✦</div>') + '</div>'
+      + '<div class="wxm-wait-quote">—— 同气相求 · 同声相应 ——</div>'
+      + '</div>';
+
+    $$('.wxm-chan', sheet).forEach(function (el) {
+      el.addEventListener('click', function () {
+        state.channel = el.getAttribute('data-el');
+        renderPanel();
+      });
+    });
+
+    if (me) {
+      $('#wxm-post-send', sheet).addEventListener('click', function () {
+        var ta = $('#wxm-post-text', sheet);
+        var text = (ta.value || '').trim();
+        if (!text) { toast('先写点什么吧 ✍️'); return; }
+        updateCommunity(function (c) {
+          c.posts.push({
+            id: 'p' + now().toString(36) + Math.random().toString(36).slice(2, 6),
+            element: channel,
+            uid: me.uid, name: me.name, gender: me.gender, age: me.age,
+            drink: me.drink, nayin: me.nayin, dominant: me.dominant,
+            text: text.slice(0, 200), at: now(), likes: [], comments: []
+          });
+        });
+        toast('✦ 已发布到 ' + elChar(channel) + '行社区');
+        renderPanel();
+      });
+      $('#wxm-post-ai', sheet).addEventListener('click', function () {
+        var ta = $('#wxm-post-text', sheet);
+        ta.value = '✦ AI 正在构思…';
+        ta.setAttribute('readonly', 'readonly');
+        var topic = elChar(channel) + '行';
+        var fallback = function () {
+          ta.removeAttribute('readonly');
+          ta.value = pick([
+            '【' + topic + '搭子招募】本人五行属' + elChar(channel) + '，本命饮品' + me.drink + '，想找' + PREF_LABEL[me.pref] + '。不设套路，先聊为敬，评论区集合！',
+            '同为' + topic + '的朋友举手 🙋 我是想找' + PREF_LABEL[me.pref] + '的' + me.name + '，最近在琢磨周末去哪玩，评论区出出主意？',
+            '发布一条寻人启事：寻找' + topic + '同频灵魂。我的优势：本命饮品口味在线，聊天不冷场。有意者评论区扣 1'
+          ]);
+        };
+        if (llmEnabled()) {
+          var me2 = me;
+          llmChat([
+            { role: 'system', content: '你是「五行纳音」社交应用的话题助手。请帮用户写一条社区帖子：用户' + me2.name + '，五行属' + elChar(me2.dominant) + '，纳音' + me2.nayin + '，本命饮品「' + me2.drink + '」，想找' + (PREF_LABEL[me2.pref] || '朋友') + (me2.tagline ? '，签名「' + me2.tagline + '」' : '') + '。帖子要求：40-80字，活泼真诚，可以带emoji，结尾引导互动。只输出帖子正文。' },
+            { role: 'user', content: '请帮我在' + elChar(channel) + '行社区写一条帖子。' }
+          ], 160).then(function (txt) {
+            ta.removeAttribute('readonly');
+            ta.value = txt;
+          }).catch(fallback);
+          setTimeout(function () { if (ta.getAttribute('readonly')) fallback(); }, 12000);
+        } else {
+          setTimeout(fallback, 400);
+        }
+      });
+      // 点赞 / 评论
+      $$('#wxm-feed .wxm-post', sheet).forEach(function (postEl) {
+        var pid = postEl.getAttribute('data-id');
+        var likeBtn = postEl.querySelector('[data-act="like"]');
+        if (likeBtn) likeBtn.addEventListener('click', function () {
+          updateCommunity(function (c) {
+            var p = c.posts.filter(function (x) { return x.id === pid; })[0];
+            if (!p) return false;
+            var i = p.likes.indexOf(me.uid);
+            if (i > -1) p.likes.splice(i, 1); else p.likes.push(me.uid);
+          });
+          renderPanel();
+        });
+        var toggleBtn = postEl.querySelector('[data-act="cmt-toggle"]');
+        var row = postEl.querySelector('.wxm-cmt-row');
+        if (toggleBtn && row) toggleBtn.addEventListener('click', function () {
+          row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+          if (row.style.display === 'flex') row.querySelector('input').focus();
+        });
+        var sendBtn = postEl.querySelector('[data-act="cmt-send"]');
+        if (sendBtn) sendBtn.addEventListener('click', function () {
+          var input = row.querySelector('input');
+          var text = (input.value || '').trim();
+          if (!text) return;
+          updateCommunity(function (c) {
+            var p = c.posts.filter(function (x) { return x.id === pid; })[0];
+            if (!p) return false;
+            if (!p.comments) p.comments = [];
+            p.comments.push({ id: 'c' + now().toString(36) + Math.random().toString(36).slice(2, 5), uid: me.uid, name: me.name, dominant: me.dominant, gender: me.gender, age: me.age, text: text.slice(0, 80), at: now() });
+          });
+          toast('✦ 评论已发布');
+          renderPanel();
+        });
+      });
+    }
+  }
+
+  /* ---------- 面板 6：大模型接入设置 ---------- */
+
+  function renderLlmPanel(sheet) {
+    var cfg = llmCfg() || { baseUrl: '', apiKey: '', model: '' };
+    sheet.innerHTML = ''
+      + '<button class="wxm-x" data-close="1">✕</button>'
+      + '<div class="wxm-pad">'
+      + '<div class="wxm-title">接入真实大模型</div>'
+      + '<div class="wxm-sub">聊天回复与 AI 话题助手将由大模型生成</div>'
+      + '<div class="wxm-llm-state" style="margin-top:12px">当前状态：<b class="' + (llmEnabled() ? 'on">已接入 ✓（' + esc(cfg.model) + '）' : 'off">未接入 · 使用本地模拟回复') + '</b></div>'
+      + '<div class="wxm-field"><label>接口地址（OpenAI 兼容，含 /v1）</label>'
+      + '  <input class="wxm-input" id="wxm-llm-url" placeholder="如 https://api.deepseek.com/v1 或 https://api.openai.com/v1" value="' + esc(cfg.baseUrl || '') + '" /></div>'
+      + '<div class="wxm-field"><label>API Key（仅保存在你自己的浏览器）</label>'
+      + '  <input class="wxm-input" id="wxm-llm-key" type="password" placeholder="sk-…" value="' + esc(cfg.apiKey || '') + '" /></div>'
+      + '<div class="wxm-field"><label>模型名称</label>'
+      + '  <input class="wxm-input" id="wxm-llm-model" placeholder="如 deepseek-chat / gpt-4o-mini / glm-4-flash" value="' + esc(cfg.model || '') + '" /></div>'
+      + '<div class="wxm-foot">'
+      + '  <button class="wxm-btn ghost" id="wxm-llm-test">测试连接</button>'
+      + '  <button class="wxm-btn" id="wxm-llm-save">保存</button>'
+      + '</div>'
+      + '<div class="wxm-llm-state" id="wxm-llm-status"></div>'
+      + '<div class="wxm-llm-state" style="color:#A8A29E">兼容所有 OpenAI 格式接口（OpenAI / DeepSeek / Kimi / 智谱 GLM / 通义 / 本地 Ollama 等）。Key 只存本机浏览器，请求由浏览器直连你填的服务商。未接入时，机器人使用本地模拟回复。</div>'
+      + '</div>';
+
+    var readForm = function () {
+      return {
+        baseUrl: ($('#wxm-llm-url', sheet).value || '').trim(),
+        apiKey: ($('#wxm-llm-key', sheet).value || '').trim(),
+        model: ($('#wxm-llm-model', sheet).value || '').trim()
+      };
+    };
+    var status = function (msg, ok) {
+      $('#wxm-llm-status', sheet).innerHTML = ok ? '<b class="on">✓ ' + esc(msg) + '</b>' : '<b class="off">✗ ' + esc(msg) + '</b>';
+    };
+    $('#wxm-llm-save', sheet).addEventListener('click', function () {
+      var c = readForm();
+      if (!c.baseUrl || !c.apiKey || !c.model) { status('三项都要填写（或清空后保存即视为不接入）', false); return; }
+      llmSave(c);
+      status('已保存 ✓ 聊天将使用真实大模型', true);
+      toast('✦ 大模型已接入');
+    });
+    $('#wxm-llm-test', sheet).addEventListener('click', function () {
+      var c = readForm();
+      if (!c.baseUrl || !c.apiKey || !c.model) { status('请先填写完整', false); return; }
+      status('连接中…', true);
+      fetch(c.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey },
+        body: JSON.stringify({ model: c.model, messages: [{ role: 'user', content: '回复"连接成功"四个字' }], max_tokens: 10 })
+      }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (d) {
+        var txt = d && d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+        status('连接成功 ✓ 模型回复：' + String(txt || '').trim().slice(0, 30), true);
+      }).catch(function (e) {
+        status('连接失败：' + (e && e.message ? e.message : '网络错误') + '（请检查地址/Key/模型名，或接口是否允许浏览器跨域）', false);
+      });
+    });
   }
 
   /* ================================================================
@@ -1401,6 +1800,8 @@
         fab.classList.remove('show');
       }
     }
+    var fabComm = $('#wxm-fab-comm');
+    if (fabComm) fabComm.classList.add('show');
   }
 
   // 监听主应用渲染（React SPA，整树替换）
@@ -1442,6 +1843,8 @@
     } else if (evt.type === 'pool-changed') {
       if (state.panel === 'pool') renderPanel();
       refreshEntryUI();
+    } else if (evt.type === 'community') {
+      if (state.panel === 'community') renderPanel();
     }
   });
 
@@ -1451,6 +1854,7 @@
 
   function boot() {
     buildShell();
+    seedCommunity();
     mo.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
     scheduleScan();
     // 唤醒时核对状态（匹配方结束聊天等）
