@@ -164,7 +164,8 @@
   function getMe() { return readJSON(sessionStorage, KEYS.me, null); }
   function setMe(me) { writeJSON(sessionStorage, KEYS.me, me); refreshEntryUI(); }
 
-  function getPool() { return readJSON(localStorage, KEYS.pool, []); }
+  // 在线模式：读云端缓存；本地模式：读 localStorage
+  function getPool() { return cloudOn() ? cloudCache.pool : readJSON(localStorage, KEYS.pool, []); }
 
   // 带版本号的事务写入：版本号对不上说明其它标签页已修改，写入失败
   function updatePool(mutator) {
@@ -185,12 +186,20 @@
     return false;
   }
 
-  function getMatches() { return readJSON(localStorage, KEYS.matches, []); }
-  function saveMatches(list) { writeJSON(localStorage, KEYS.matches, list); }
+  function getMatches() { return cloudOn() ? cloudCache.matches : readJSON(localStorage, KEYS.matches, []); }
+  function saveMatches(list) { if (!cloudOn()) writeJSON(localStorage, KEYS.matches, list); }
 
-  function getChat(matchId) { return readJSON(localStorage, KEYS.chatPrefix + matchId, []); }
-  function saveChat(matchId, msgs) { writeJSON(localStorage, KEYS.chatPrefix + matchId, msgs); }
+  function getChat(matchId) { return cloudOn() ? (cloudCache.chats[matchId] || []) : readJSON(localStorage, KEYS.chatPrefix + matchId, []); }
+  function saveChat(matchId, msgs) { if (!cloudOn()) writeJSON(localStorage, KEYS.chatPrefix + matchId, msgs); }
+
+  function getCommunity() { return cloudOn() ? cloudCache.community : readJSON(localStorage, COMM.key, { posts: [] }); }
+  function saveCommunity(c) { if (!cloudOn()) writeJSON(localStorage, COMM.key, c); }
   function appendChat(matchId, msg) {
+    if (cloudOn()) {
+      // 在线模式：写入数据库，Realtime 回推后统一渲染
+      cloudSendChat(matchId, msg).catch(function (e) { toast('发送失败：' + (e && e.message || '网络错误')); });
+      return;
+    }
     var msgs = getChat(matchId);
     msgs.push(msg);
     saveChat(matchId, msgs);
@@ -234,6 +243,309 @@
       }
     };
   })();
+
+  /* ================================================================
+   * 四·四、云端（Supabase，可选）：真实用户 / 数据库 / 实时同步
+   * 配置后进入「在线模式」：不同设备的真实用户可互相匹配聊天；
+   * 未配置时保持「本地模式」，所有功能不受影响。
+   * ================================================================ */
+
+  var CLOUD_KEY = 'wuxing_supabase_v1';
+  var cloudCache = { pool: [], matches: [], chats: {}, community: { posts: [] }, user: null, sub: null, seen: {} };
+
+  function cloudCfg() { return readJSON(localStorage, CLOUD_KEY, null); }
+  function cloudSaveCfg(cfg) { writeJSON(localStorage, CLOUD_KEY, cfg); }
+  function cloudConfigured() {
+    var c = cloudCfg();
+    return !!(c && c.url && c.anonKey);
+  }
+  // 在线模式判定：已配置且已登录
+  function cloudOn() {
+    return !!(cloudConfigured() && cloudCache.user);
+  }
+
+  var sb = null; // supabase client
+  function cloudLoadSdk() {
+    return new Promise(function (resolve, reject) {
+      if (window.supabase && window.supabase.createClient) return resolve();
+      var tryLoad = function (src, fallback) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { if (fallback) tryLoad(fallback, null); else reject(new Error('SDK 加载失败，请检查网络')); };
+        document.head.appendChild(s);
+      };
+      tryLoad('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
+              'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js');
+    });
+  }
+
+  function cloudInit() {
+    if (!cloudConfigured()) return Promise.resolve(false);
+    return cloudLoadSdk().then(function () {
+      var c = cloudCfg();
+      sb = window.supabase.createClient(c.url, c.anonKey);
+      return sb.auth.getSession().then(function (res) {
+        cloudCache.user = res.data && res.data.session ? res.data.session.user : null;
+        sb.auth.onAuthStateChange(function (_evt, session) {
+          var u = session && session.user ? session.user : null;
+          var changed = (!!u) !== (!!cloudCache.user) || (u && cloudCache.user && u.id !== cloudCache.user.id);
+          cloudCache.user = u;
+          if (changed) onCloudAuthChanged(u);
+        });
+        if (cloudCache.user) return cloudBootstrap();
+        return true;
+      });
+    }).then(function () { return true; }).catch(function (e) {
+      trace('cloud:init ERR ' + (e && e.message));
+      return false;
+    });
+  }
+
+  // 登录 / 退出后：拉取云端数据并订阅实时变化
+  function onCloudAuthChanged(u) {
+    if (u) {
+      cloudBootstrap().then(function () {
+        toast('☁️ 已登录 · 在线模式（' + u.email + '）');
+        if (state.panel === 'auth' || state.panel === 'pool') renderPanel();
+      });
+    } else {
+      toast('已退出登录 · 本地模式');
+      if (state.panel === 'auth' || state.panel === 'pool') renderPanel();
+    }
+  }
+
+  // 把云端行映射为本地成员结构
+  function mapMember(row) {
+    return {
+      uid: row.uid, name: row.name || '用户',
+      gender: row.gender || 'secret', age: row.age || null,
+      seekGender: row.seek_gender || 'any',
+      tags: row.tags || [], tagline: row.tagline || '',
+      pref: row.pref || 'friend',
+      drink: row.drink || '', drinkId: row.drink_id || '', nayin: row.nayin || '',
+      dominant: row.dominant || 'wood', scores: row.scores || {},
+      temp: row.temp || '', bubble: row.bubble || '',
+      state: row.state || 'waiting', matchId: row.match_id || null,
+      bot: false, joinedAt: row.joined_at ? new Date(row.joined_at).getTime() : now()
+    };
+  }
+  function mapMatch(row) {
+    return {
+      id: row.id, aUid: row.a_uid, bUid: row.b_uid,
+      score: row.score, relation: row.relation || {}, reasons: row.reasons || [],
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : now(),
+      endedAt: row.ended_at ? new Date(row.ended_at).getTime() : null,
+      endedBy: row.ended_by || null, seen: row.seen || {}
+    };
+  }
+
+  function cloudBootstrap() {
+    return Promise.all([
+      cloudFetchProfile(),
+      cloudFetchPool(),
+      cloudFetchMatches(),
+      cloudFetchCommunity()
+    ]).then(function () {
+      cloudSubscribe();
+      bus.post({ type: 'pool-changed' });
+      refreshEntryUI();
+      return true;
+    });
+  }
+
+  function cloudFetchProfile() {
+    return sb.from('profiles').select('*').eq('id', cloudCache.user.id).maybeSingle()
+      .then(function (res) {
+        if (!res.data) return;
+        var row = res.data;
+        var prev = getMe() || {};
+        setMe({
+          uid: cloudCache.user.id,
+          name: row.name || prev.name || '用户',
+          gender: row.gender || 'secret', age: row.age || null,
+          seekGender: row.seek_gender || 'any', tags: row.tags || [],
+          tagline: row.tagline || '', pref: row.pref || 'friend',
+          drink: row.drink || prev.drink || '', drinkId: row.drink_id || '',
+          nayin: row.nayin || prev.nayin || '', dominant: row.dominant || prev.dominant || 'wood',
+          scores: row.scores || prev.scores || {}, temp: row.temp || prev.temp || '',
+          bubble: row.bubble || prev.bubble || '',
+          bot: false, state: 'idle', matchId: null
+        });
+      });
+  }
+  function cloudUpsertProfile(profile) {
+    return sb.from('profiles').upsert({
+      id: profile.uid, name: profile.name, gender: profile.gender, age: profile.age,
+      seek_gender: profile.seekGender, tags: profile.tags || [], tagline: profile.tagline || '',
+      pref: profile.pref, drink: profile.drink, drink_id: profile.drinkId,
+      nayin: profile.nayin, dominant: profile.dominant, scores: profile.scores,
+      temp: profile.temp, bubble: profile.bubble, updated_at: new Date().toISOString()
+    });
+  }
+
+  function cloudFetchPool() {
+    return sb.from('pool').select('*').then(function (res) {
+      if (res.error) throw res.error;
+      cloudCache.pool = (res.data || []).map(mapMember);
+    });
+  }
+  function cloudJoinPool(profile) {
+    return sb.from('pool').upsert({
+      uid: profile.uid, state: 'waiting', match_id: null,
+      name: profile.name, gender: profile.gender, age: profile.age,
+      seek_gender: profile.seekGender, tags: profile.tags || [], tagline: profile.tagline || '',
+      pref: profile.pref, drink: profile.drink, nayin: profile.nayin,
+      dominant: profile.dominant, scores: profile.scores,
+      temp: profile.temp, bubble: profile.bubble, joined_at: new Date().toISOString()
+    }).then(function () { return cloudFetchPool(); });
+  }
+  function cloudLeavePool() {
+    return sb.from('pool').delete().eq('uid', cloudCache.user.id).then(function () { return cloudFetchPool(); });
+  }
+
+  function cloudFetchMatches() {
+    return sb.from('matches').select('*').order('created_at', { ascending: false }).limit(50)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        cloudCache.matches = (res.data || []).map(mapMatch).reverse();
+      });
+  }
+  // 新匹配命中当前用户时弹通知（每段匹配每次会话只提示一次）
+  function handleCloudMatchUpdates() {
+    var me = getMe();
+    if (!me) return;
+    cloudCache.matches.forEach(function (m) {
+      if (m.endedAt) return;
+      if (m.aUid !== me.uid && m.bUid !== me.uid) return;
+      if (cloudCache.seen[m.id]) return;
+      cloudCache.seen[m.id] = true;
+      if (me.matchId !== m.id || me.state !== 'matched') {
+        setMe(Object.assign({}, me, { state: 'matched', matchId: m.id }));
+      }
+      notifyMatchToMe(m, false);
+    });
+  }
+
+  function cloudFetchChat(matchId) {
+    return sb.from('messages').select('*').eq('match_id', matchId).order('at', { ascending: true })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        cloudCache.chats[matchId] = (res.data || []).map(function (m) {
+          return { from: m.sender, name: m.sender_name || '', text: m.text, at: m.at ? new Date(m.at).getTime() : now() };
+        });
+      });
+  }
+  function cloudSendChat(matchId, msg) {
+    // 乐观上屏：先本地缓存渲染，Realtime 回推由 onCloudMessage 去重
+    var list = cloudCache.chats[matchId] || (cloudCache.chats[matchId] = []);
+    list.push(msg);
+    renderChat();
+    return sb.from('messages').insert({
+      match_id: matchId, sender: msg.from, sender_name: msg.name, text: msg.text
+    }).catch(function (e) {
+      var i = list.indexOf(msg);
+      if (i > -1) list.splice(i, 1);
+      renderChat();
+      throw e;
+    });
+  }
+  function onCloudMessage(row) {
+    var msg = { from: row.sender, name: row.sender_name || '', text: row.text, at: row.at ? new Date(row.at).getTime() : now() };
+    var list = cloudCache.chats[row.match_id] || (cloudCache.chats[row.match_id] = []);
+    var dup = list.length && list[list.length - 1].from === msg.from && list[list.length - 1].text === msg.text && Math.abs(list[list.length - 1].at - msg.at) < 3000;
+    if (dup) return;
+    list.push(msg);
+    var me = getMe();
+    if (state.panel === 'chat' && state.matchId === row.match_id) {
+      renderChat();
+      if (me && msg.from !== me.uid) toast('💬 ' + msg.name + '：' + msg.text.slice(0, 18));
+    } else if (me && msg.from !== me.uid) {
+      toast('💬 ' + msg.name + '：' + msg.text.slice(0, 18));
+    }
+  }
+
+  function cloudFetchCommunity() {
+    return Promise.all([
+      sb.from('posts').select('*').order('at', { ascending: false }).limit(100),
+      sb.from('comments').select('*').order('at', { ascending: true }).limit(300)
+    ]).then(function (resArr) {
+      var posts = resArr[0].data || [], cmts = resArr[1].data || [];
+      var byPost = {};
+      cmts.forEach(function (c) { (byPost[c.post_id] = byPost[c.post_id] || []).push({
+        id: c.id, uid: c.uid, name: c.name || '', dominant: c.dominant || 'wood',
+        text: c.text, at: c.at ? new Date(c.at).getTime() : now()
+      }); });
+      cloudCache.community = { posts: posts.map(function (p) {
+        return {
+          id: p.id, element: p.channel, uid: p.uid, name: p.name || '',
+          gender: p.gender || 'secret', age: p.age || null,
+          drink: p.drink || '', dominant: p.dominant || 'wood', tags: p.tags || [],
+          text: p.text, at: p.at ? new Date(p.at).getTime() : now(),
+          likes: p.likes || [], comments: byPost[p.id] || []
+        };
+      }) };
+    });
+  }
+  function cloudAddPost(post) {
+    return sb.from('posts').insert({
+      id: post.id, channel: post.element, uid: post.uid, name: post.name,
+      gender: post.gender, age: post.age, drink: post.drink, dominant: post.dominant,
+      tags: post.tags || [], text: post.text
+    }).then(cloudFetchCommunity);
+  }
+  function cloudAddComment(postId, cmt) {
+    return sb.from('comments').insert({
+      id: cmt.id, post_id: postId, uid: cmt.uid, name: cmt.name, dominant: cmt.dominant, text: cmt.text
+    }).then(cloudFetchCommunity);
+  }
+  function cloudToggleLike(postId, uid) {
+    var c = cloudCache.community;
+    var p = c.posts.filter(function (x) { return x.id === postId; })[0];
+    if (!p) return Promise.resolve();
+    var i = p.likes.indexOf(uid);
+    if (i > -1) p.likes.splice(i, 1); else p.likes.push(uid);
+    return sb.from('posts').update({ likes: p.likes }).eq('id', postId);
+  }
+
+  function cloudSubscribe() {
+    if (cloudCache.sub || !sb) return;
+    var refetch = function (fn, evt) { return function () { fn().then(function () { bus.post({ type: evt }); }).catch(function (e) { trace('cloud:rt ERR ' + (e && e.message)); }); }; };
+    cloudCache.sub = sb.channel('wxm-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pool' },
+          refetch(cloudFetchPool, 'pool-changed'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' },
+          function () { cloudFetchMatches().then(function () { handleCloudMatchUpdates(); bus.post({ type: 'pool-changed' }); }).catch(function () {}); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
+          function (payload) { if (payload.new) onCloudMessage(payload.new); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' },
+          refetch(cloudFetchCommunity, 'community'))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' },
+          refetch(cloudFetchCommunity, 'community'))
+      .subscribe();
+  }
+
+  // 在线撮合：调用服务端 try_match（与前端同一套五行生克算法，数据库事务内原子执行）
+  function cloudScan() {
+    if (!cloudOn()) return Promise.resolve(0);
+    return sb.rpc('try_match').then(function () {
+      return cloudFetchMatches();
+    }).then(function () {
+      handleCloudMatchUpdates();
+      return cloudFetchPool();
+    }).then(function () {
+      // 聊天面板打开时轮询新消息（Realtime 之外的双保险）
+      if (state.panel === 'chat' && state.matchId) {
+        cloudFetchChat(state.matchId).then(function () { if (state.panel === 'chat') renderChat(); }).catch(function () {});
+      }
+      bus.post({ type: 'pool-changed' });
+    }).catch(function (e) { trace('cloud:scan ERR ' + (e && e.message)); });
+  }
+  function cloudEndMatch(matchId) {
+    return sb.rpc('end_match', { p_match_id: matchId }).then(function () {
+      return Promise.all([cloudFetchMatches(), cloudFetchPool()]);
+    });
+  }
 
   /* ================================================================
    * 四·五、大模型接入（可选，OpenAI 兼容接口）
@@ -296,9 +608,8 @@
 
   var COMM = { key: 'wuxing_community_v1', ver: 'wuxing_community_ver_v1' };
 
-  function getCommunity() { return readJSON(localStorage, COMM.key, { posts: [] }); }
-  function saveCommunity(c) { writeJSON(localStorage, COMM.key, c); }
   function updateCommunity(mutator) {
+    if (cloudOn()) return false; // 在线模式由 cloudAddPost / cloudAddComment / cloudToggleLike 处理
     var c = getCommunity();
     var result = mutator(c);
     if (result === false) return false;
@@ -436,6 +747,7 @@
 
   // 定时扫描（带跨标签页心跳锁：同一时刻只有一个标签页执行撮合）
   function scanPool() {
+    if (cloudOn()) { cloudScan(); return; } // 在线模式：服务端 RPC 原子撮合
     var lock = readJSON(localStorage, KEYS.scanLock, null);
     if (lock && now() - lock.at < SCAN_INTERVAL_MS - 500) return; // 其它标签页正在扫描
     writeJSON(localStorage, KEYS.scanLock, { at: now(), r: Math.random() }); // 心跳，独占扫描权
@@ -793,6 +1105,7 @@
     else if (state.panel === 'chat') renderChatPanel(sheet);
     else if (state.panel === 'community') renderCommunityPanel(sheet);
     else if (state.panel === 'llm') renderLlmPanel(sheet);
+    else if (state.panel === 'auth') renderAuthPanel(sheet);
     else sheet.innerHTML = '';
   }
 
@@ -957,7 +1270,8 @@
     var html = '<button class="wxm-x" data-close="1">✕</button>'
       + '<div class="wxm-pad">'
       + '<div class="wxm-title">五行匹配池</div>'
-      + '<div class="wxm-sub">系统每 ' + (SCAN_INTERVAL_MS / 1000) + ' 秒扫描一次，依据五行生克自动撮合</div>'
+      + '<div class="wxm-sub">系统每 ' + (SCAN_INTERVAL_MS / 1000) + ' 秒扫描一次，依据五行生克自动撮合 · '
+      + (cloudOn() ? '<span style="color:#5E8B7E;font-weight:700">☁️ 在线模式</span>' : '本地模式 <button type="button" id="wxm-cloud-entry" style="border:1px solid #2C2C2C;background:#fff;font-size:10px;padding:1px 6px;cursor:pointer;font-family:inherit">☁️ 接入云端，匹配真实用户</button>') + '</div>'
       + '<div class="wxm-count-row">'
       + '  <div class="wxm-stat"><b>' + pool.length + '</b><span>池中人数</span></div>'
       + '  <div class="wxm-stat"><b>' + pool.filter(function (m) { return m.state === 'waiting'; }).length + '</b><span>等待缘分</span></div>'
@@ -1038,6 +1352,8 @@
     var endm = $('#wxm-endmatch', sheet);
     if (endm) endm.addEventListener('click', function () { endMatch(match.id, true); });
     $('#wxm-llm-entry', sheet).addEventListener('click', function () { openPanel('llm'); });
+    var cloudEntry = $('#wxm-cloud-entry', sheet);
+    if (cloudEntry) cloudEntry.addEventListener('click', function () { openPanel('auth'); });
     $('#wxm-summon', sheet).addEventListener('click', function () {
       summonBot(true);
       toast('✦ 一位有缘人正在入池…');
@@ -1253,6 +1569,15 @@
 
     var body = $('#wxm-chat-body', sheet);
     renderChatMessages(body, msgs, me, match, partner, ended);
+    // 在线模式：历史消息按需加载（加载后重渲染一次）
+    if (cloudOn() && !cloudCache.chats[match.id] && !cloudCache.chatLoaded[match.id]) {
+      cloudCache.chatLoaded[match.id] = true;
+      cloudFetchChat(match.id).then(function () {
+        if (state.panel === 'chat' && state.matchId === match.id) {
+          renderChatMessages($('#wxm-chat-body', sheet) || body, getChat(match.id), me, match, partner, !!getMyMatch()?.endedAt);
+        }
+      }).catch(function () {});
+    }
 
     $('#wxm-chat-back', sheet).addEventListener('click', function () { openPanel('pool'); });
 
@@ -1486,17 +1811,21 @@
         var ta = $('#wxm-post-text', sheet);
         var text = (ta.value || '').trim();
         if (!text) { toast('先写点什么吧 ✍️'); return; }
-        updateCommunity(function (c) {
-          c.posts.push({
-            id: 'p' + now().toString(36) + Math.random().toString(36).slice(2, 6),
-            element: channel,
-            uid: me.uid, name: me.name, gender: me.gender, age: me.age,
-            drink: me.drink, nayin: me.nayin, dominant: me.dominant,
-            text: text.slice(0, 200), at: now(), likes: [], comments: []
-          });
-        });
-        toast('✦ 已发布到 ' + elChar(channel) + '行社区');
-        renderPanel();
+        var post = {
+          id: 'p' + now().toString(36) + Math.random().toString(36).slice(2, 6),
+          element: channel,
+          uid: me.uid, name: me.name, gender: me.gender, age: me.age,
+          drink: me.drink, nayin: me.nayin, dominant: me.dominant, tags: me.tags || [],
+          text: text.slice(0, 200), at: now(), likes: [], comments: []
+        };
+        if (cloudOn()) {
+          cloudAddPost(post).then(function () { toast('✦ 已发布到云端社区'); renderPanel(); })
+            .catch(function (e) { toast('发布失败：' + (e && e.message || '网络错误')); });
+        } else {
+          updateCommunity(function (c) { c.posts.push(post); });
+          toast('✦ 已发布到 ' + elChar(channel) + '行社区');
+          renderPanel();
+        }
       });
       $('#wxm-post-ai', sheet).addEventListener('click', function () {
         var ta = $('#wxm-post-text', sheet);
@@ -1530,6 +1859,10 @@
         var pid = postEl.getAttribute('data-id');
         var likeBtn = postEl.querySelector('[data-act="like"]');
         if (likeBtn) likeBtn.addEventListener('click', function () {
+          if (cloudOn()) {
+            cloudToggleLike(pid, me.uid).then(renderPanel);
+            return;
+          }
           updateCommunity(function (c) {
             var p = c.posts.filter(function (x) { return x.id === pid; })[0];
             if (!p) return false;
@@ -1549,17 +1882,139 @@
           var input = row.querySelector('input');
           var text = (input.value || '').trim();
           if (!text) return;
-          updateCommunity(function (c) {
-            var p = c.posts.filter(function (x) { return x.id === pid; })[0];
-            if (!p) return false;
-            if (!p.comments) p.comments = [];
-            p.comments.push({ id: 'c' + now().toString(36) + Math.random().toString(36).slice(2, 5), uid: me.uid, name: me.name, dominant: me.dominant, gender: me.gender, age: me.age, text: text.slice(0, 80), at: now() });
-          });
-          toast('✦ 评论已发布');
-          renderPanel();
+          var cmt = { id: 'c' + now().toString(36) + Math.random().toString(36).slice(2, 5), uid: me.uid, name: me.name, dominant: me.dominant, gender: me.gender, age: me.age, text: text.slice(0, 80), at: now() };
+          if (cloudOn()) {
+            cloudAddComment(pid, cmt).then(function () { toast('✦ 评论已发布'); renderPanel(); })
+              .catch(function (e) { toast('评论失败：' + (e && e.message || '网络错误')); });
+          } else {
+            updateCommunity(function (c) {
+              var p = c.posts.filter(function (x) { return x.id === pid; })[0];
+              if (!p) return false;
+              if (!p.comments) p.comments = [];
+              p.comments.push(cmt);
+            });
+            toast('✦ 评论已发布');
+            renderPanel();
+          }
         });
       });
     }
+  }
+
+  /* ---------- 面板 7：登录 / 云端配置 ---------- */
+
+  function renderAuthPanel(sheet) {
+    var cfg = cloudCfg() || { url: '', anonKey: '' };
+    var user = cloudCache.user;
+
+    if (!cloudConfigured()) {
+      // 未配置：填 Supabase 项目地址与 anon key
+      sheet.innerHTML = ''
+        + '<button class="wxm-x" data-close="1">✕</button>'
+        + '<div class="wxm-pad">'
+        + '<div class="wxm-title">☁️ 接入云端</div>'
+        + '<div class="wxm-sub">接入 Supabase 后：真实用户注册登录、数据存云端数据库、跨设备互相匹配</div>'
+        + '<div class="wxm-field"><label>Project URL</label>'
+        + '  <input class="wxm-input" id="wxm-cloud-url" placeholder="https://xxxx.supabase.co" value="' + esc(cfg.url || '') + '" /></div>'
+        + '<div class="wxm-field"><label>anon public key</label>'
+        + '  <input class="wxm-input" id="wxm-cloud-key" placeholder="eyJhbGciOi…" value="' + esc(cfg.anonKey || '') + '" /></div>'
+        + '<div class="wxm-foot"><button class="wxm-btn ghost" data-close="1">暂不</button>'
+        + '<button class="wxm-btn" id="wxm-cloud-save">保存并连接</button></div>'
+        + '<div class="wxm-llm-state" id="wxm-cloud-status"></div>'
+        + '<div class="wxm-llm-state" style="color:#A8A29E">没有项目？supabase.com 免费创建（约 3 分钟），'
+        + '在 SQL Editor 运行仓库里的 matching/supabase-setup.sql，'
+        + '再到 Authentication 设置关闭「Confirm email」即可。详细步骤见仓库 SETUP-CLOUD.md。'
+        + '不接入也完全可以玩——本地模式支持双标签页模拟双人。</div>'
+        + '</div>';
+      $('#wxm-cloud-save', sheet).addEventListener('click', function () {
+        var url = ($('#wxm-cloud-url', sheet).value || '').trim();
+        var key = ($('#wxm-cloud-key', sheet).value || '').trim();
+        if (!url || !key) { toast('两项都要填写'); return; }
+        cloudSaveCfg({ url: url, anonKey: key });
+        statusMsg(sheet, '连接中…', true);
+        cloudInit().then(function (ok) {
+          if (ok) { statusMsg(sheet, '✓ 连接成功！在下方登录或注册账号', true); renderPanel(); }
+          else statusMsg(sheet, '✗ 连接失败：请检查 URL / Key，以及是否已运行 supabase-setup.sql', false);
+        });
+      });
+      return;
+    }
+
+    if (user) {
+      // 已登录
+      sheet.innerHTML = ''
+        + '<button class="wxm-x" data-close="1">✕</button>'
+        + '<div class="wxm-pad" style="text-align:center">'
+        + '<div style="font-size:34px;margin-top:8px">☁️</div>'
+        + '<div class="wxm-title" style="margin-top:6px">在线模式</div>'
+        + '<div class="wxm-sub">当前账号：' + esc(user.email) + '</div>'
+        + '<div class="wxm-card" style="margin-top:16px;text-align:left;font-size:12px;color:#2C2C2C;line-height:2">'
+        + '✓ 注册 / 登录真实账号<br/>✓ 测试结果保存到云端数据库，换设备登录即可恢复<br/>✓ 与全球真实用户互相匹配、聊天、逛社区</div>'
+        + '<div class="wxm-foot"><button class="wxm-btn ghost" id="wxm-logout">退出登录</button>'
+        + '<button class="wxm-btn" data-close="1">完成</button></div>'
+        + '</div>';
+      $('#wxm-logout', sheet).addEventListener('click', function () {
+        if (sb) sb.auth.signOut();
+      });
+      return;
+    }
+
+    // 已配置未登录：登录 / 注册表单
+    sheet.innerHTML = ''
+      + '<button class="wxm-x" data-close="1">✕</button>'
+      + '<div class="wxm-pad">'
+      + '<div class="wxm-title">登录 · 在线模式</div>'
+      + '<div class="wxm-sub">注册 / 登录后，你的五行档案与匹配都保存在云端数据库</div>'
+      + '<div class="wxm-field"><label>邮箱</label>'
+      + '  <input class="wxm-input" id="wxm-auth-email" type="email" placeholder="you@example.com" /></div>'
+      + '<div class="wxm-field"><label>密码（至少 6 位）</label>'
+      + '  <input class="wxm-input" id="wxm-auth-pass" type="password" placeholder="••••••" /></div>'
+      + '<div class="wxm-foot">'
+      + '  <button class="wxm-btn ghost" id="wxm-signup">注册</button>'
+      + '  <button class="wxm-btn" id="wxm-signin">登录</button>'
+      + '</div>'
+      + '<div class="wxm-llm-state" id="wxm-auth-status"></div>'
+      + '<div class="wxm-foot"><button class="wxm-btn ghost slim" id="wxm-cloud-reset">断开云端连接（回到本地模式）</button></div>'
+      + '</div>';
+    var authStatus = function (msg, ok) {
+      $('#wxm-auth-status', sheet).innerHTML = ok ? '<b class="on">✓ ' + esc(msg) + '</b>' : '<b class="off">✗ ' + esc(msg) + '</b>';
+    };
+    var readAuth = function () {
+      return { email: ($('#wxm-auth-email', sheet).value || '').trim(), pass: $('#wxm-auth-pass', sheet).value || '' };
+    };
+    $('#wxm-signin', sheet).addEventListener('click', function () {
+      var a = readAuth();
+      if (!a.email || a.pass.length < 6) { authStatus('请填写邮箱和至少 6 位密码', false); return; }
+      authStatus('登录中…', true);
+      sb.auth.signInWithPassword({ email: a.email, password: a.pass })
+        .then(function (res) {
+          if (res.error) throw res.error;
+        })
+        .catch(function (e) { authStatus(e.message || '登录失败', false); });
+    });
+    $('#wxm-signup', sheet).addEventListener('click', function () {
+      var a = readAuth();
+      if (!a.email || a.pass.length < 6) { authStatus('请填写邮箱和至少 6 位密码', false); return; }
+      authStatus('注册中…', true);
+      sb.auth.signUp({ email: a.email, password: a.pass })
+        .then(function (res) {
+          if (res.error) throw res.error;
+          if (!res.data.session) throw new Error('注册成功，但该项目要求邮箱验证：请到 Supabase 控制台 Authentication 关闭 Confirm email 后重试');
+        })
+        .catch(function (e) { authStatus(e.message || '注册失败', false); });
+    });
+    $('#wxm-cloud-reset', sheet).addEventListener('click', function () {
+      cloudSaveCfg(null);
+      if (cloudCache.sub && sb) { try { sb.removeChannel(cloudCache.sub); } catch (e) {} }
+      cloudCache.sub = null; cloudCache.user = null;
+      toast('已断开云端 · 本地模式');
+      renderPanel();
+    });
+  }
+
+  function statusMsg(sheet, msg, ok) {
+    var el = $('#wxm-cloud-status', sheet);
+    if (el) el.innerHTML = ok ? '<b class="on">✓ ' + esc(msg) + '</b>' : '<b class="off">✗ ' + esc(msg) + '</b>';
   }
 
   /* ---------- 面板 6：大模型接入设置 ---------- */
@@ -1632,14 +2087,21 @@
     profile.matchId = null;
     profile.joinedAt = now();
     setMe(profile);
-    updatePool(function (pool) {
-      var i = pool.findIndex(function (m) { return m.uid === profile.uid; });
-      if (i > -1) pool[i] = profile; else pool.push(profile);
-      return true;
-    });
-    bus.post({ type: 'pool-changed' });
-    closePanel();
-    toast('✦ 已进入匹配池，天机推演中…');
+    if (cloudOn()) {
+      // 在线模式：档案与池写入数据库，全球真实用户互相匹配
+      cloudUpsertProfile(profile).then(function () { return cloudJoinPool(profile); })
+        .then(function () { bus.post({ type: 'pool-changed' }); closePanel(); toast('✦ 已进入匹配池 · 在线匹配中'); })
+        .catch(function (e) { toast('入池失败：' + (e && e.message || '网络错误')); });
+    } else {
+      updatePool(function (pool) {
+        var i = pool.findIndex(function (m) { return m.uid === profile.uid; });
+        if (i > -1) pool[i] = profile; else pool.push(profile);
+        return true;
+      });
+      bus.post({ type: 'pool-changed' });
+      closePanel();
+      toast('✦ 已进入匹配池，天机推演中…');
+    }
     if ('Notification' in window && Notification.permission === 'default') {
       try { Notification.requestPermission(); } catch (e) {}
     }
@@ -1652,11 +2114,15 @@
     if (!me) return;
     var match = getMyMatch();
     if (match && !match.endedAt) { endMatch(match.id, byUser); return; }
-    updatePool(function (pool) {
-      var i = pool.findIndex(function (m) { return m.uid === me.uid; });
-      if (i > -1) pool.splice(i, 1);
-      return true;
-    });
+    if (cloudOn()) {
+      cloudLeavePool().then(function () { bus.post({ type: 'pool-changed' }); });
+    } else {
+      updatePool(function (pool) {
+        var i = pool.findIndex(function (m) { return m.uid === me.uid; });
+        if (i > -1) pool.splice(i, 1);
+        return true;
+      });
+    }
     setMe(null);
     bus.post({ type: 'pool-changed' });
     if (byUser) { toast('已离开匹配池'); closePanel(); }
@@ -1673,7 +2139,11 @@
     saveMatches(matches);
 
     var pid = match.aUid === (me && me.uid) ? match.bUid : match.aUid;
-    updatePool(function (pool) {
+    if (cloudOn()) {
+      // 在线模式：数据库 RPC 同步结束双方状态
+      cloudEndMatch(matchId).then(function () { bus.post({ type: 'pool-changed' }); })
+        .catch(function (e) { toast('操作失败：' + (e && e.message || '网络错误')); });
+    } else updatePool(function (pool) {
       [match.aUid, match.bUid].forEach(function (id) {
         var m = pool.filter(function (x) { return x.uid === id; })[0];
         // 双方都离开匹配池；人类档案保留等待重新入池，机器人直接移除
@@ -1772,6 +2242,7 @@
   // 双人同浏览器演示时可设 sessionStorage['wxm_solo_off']='1' 关闭自动召唤，
   // 让两个真实用户互相匹配
   function autoSummonEnabled() {
+    if (cloudOn()) return false; // 在线模式匹配真实用户，不召唤机器人
     try { return sessionStorage.getItem('wxm_solo_off') !== '1'; } catch (e) { return true; }
   }
   function scheduleSummon() {
@@ -2000,6 +2471,7 @@
   function boot() {
     buildShell();
     seedCommunity();
+    cloudInit(); // 配置了 Supabase 则进入在线模式（异步初始化）
     mo.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
     scheduleScan();
     // 心跳兜底：即使模块加载晚于 React 渲染（页面已静态、再无 DOM 变动），
