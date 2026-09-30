@@ -74,12 +74,35 @@
     { id: 'zisu-huamei',       name: '紫苏话梅', nayin: '涧下水 + 路旁土', wuxing: { wood: 0, fire: 0, earth: 1, metal: 0, water: 2 }, temp: '清冷', bubble: '中汽' }
   ];
 
-  var BOT_NAMES = ['青梧', '望舒', '知许', '鹿鸣', '既白', '南乔', '温叙', '栖迟', '云岫', '竹西', '疏影', '兰舟', '扶苏', '清和', '拾星', '照野'];
+  var BOT_NAMES = ['青梧', '望舒', '知许', '鹿鸣', '既白', '南乔', '温叙', '栖迟', '云岫', '竹西', '疏影', '兰舟', '扶苏', '清和', '拾星', '照野', '之遥', '晚棠', '屿安', '斯年', '听澜', '沐白', '之夏', '其琛', '亦安', '阮白', '叙白', '枝枝'];
+
+  // 用户属性标签库（偏好弹窗自选，最多 4 个；共同标签参与匹配加分）
+  var TAGS = ['爬山', '健身', '电影', '追剧', '摄影', '做饭', '桌游', 'K歌', '旅行', '读书', '游戏', '撸猫', '遛狗', '爵士乐', '二次元', '咖啡续命', '夜猫子', '早睡星人', 'i人', 'e人', '甜品控', '球类运动'];
+
+  // 机器人人设素材（真人化）
+  var BOT_JOBS = ['平面设计师', '在读研究生', '后端程序员', '小学老师', '咖啡师', '产品经理', '自由插画师', '麻醉护士', '视频剪辑师', '健身教练', '建筑设计师', '宠物医生', '书店店员', '地质勘探员'];
+  var BOT_STATUS = ['刚下班', '周末瘫', '在图书馆', '上班摸鱼', '刚健完身', '追剧中', '旅行途中', '深夜emo'];
+  var BOT_TAGLINES = [
+    '在成为更好的自己之前，先成为更快乐的自己',
+    '白天搬砖，晚上做梦',
+    '人生是旷野，不是轨道',
+    '按时吃饭，按月旅行',
+    '喝酒六分醉，吃饭七分饱',
+    '和世界交手多年，依然光彩依旧',
+    '主打一个随遇而安',
+    '兴趣广泛，样样稀松',
+    '不想上班，想上山',
+    '咖啡因驱动型人类',
+    '快乐最大，其他随缘',
+    '收集日落和好听的歌'
+  ];
   var BOT_LINES = {
     open: [
       '你好呀，天机把我们安排到了一起 ✨',
       '缘来是你！我的五行和你很合拍呢',
-      '刚进匹配池就遇到了你，运气不错～'
+      '刚进匹配池就遇到了你，运气不错～',
+      '嗨嗨，看了一眼资料，感觉我们会聊得来',
+      '叮咚～你的有缘人上线了 🧋'
     ],
     chat: [
       '你的本命饮品是{name}呀，我平时也挺喜欢这一口的',
@@ -89,12 +112,13 @@
       '说起来，这个测试还挺准的，你觉得呢？',
       '下次可以一起喝一杯，我请客 🧋',
       '你的名字好好听，有什么寓意吗？',
-      '难得遇到这么合拍的{pref}，要珍惜呀'
-    ],
-    bye: [
-      '和你聊天很开心，期待下次再聊～',
-      '今天先聊到这里，有缘再见 🌙',
-      '我去续杯茶了，回聊！'
+      '难得遇到这么合拍的{pref}，要珍惜呀',
+      '对了我平时{status}，闲下来就喜欢{tag}',
+      '看到你也是「{shared}」同好，瞬间有话题了！',
+      '我是做{job}的，你呢？',
+      '我的签名是「{tagline}」，你品味应该差不多 😏',
+      '今天有点累，但和你聊天还挺解压的',
+      '你周末一般怎么过呀？我可能又在{status}'
     ]
   };
 
@@ -245,11 +269,15 @@
     var rel = match.relation.label.split(' ·')[0];
     var g = partner.gender === 'male' ? '男' : partner.gender === 'female' ? '女' : '性别保密';
     var mg = me.gender === 'male' ? '男' : me.gender === 'female' ? '女' : '性别保密';
+    var pTags = (partner.tags || []).join('、') || '暂无';
+    var mTags = (me.tags || []).join('、') || '暂无';
+    var shared = (me.tags || []).filter(function (t) { return (partner.tags || []).indexOf(t) > -1; });
     return '你在一个名为「五行纳音 · 本命饮品」的社交应用里，扮演与对方匹配成功的有缘人，进行轻松自然的中文闲聊。'
-      + '你的人设：' + partner.name + '，' + g + (partner.age ? partner.age + '岁' : '') + '，五行属' + elChar(partner.dominant) + '，纳音' + partner.nayin + '，本命饮品「' + partner.drink + '」，正在找' + (PREF_LABEL[partner.pref] || '朋友') + '。'
-      + '对方：' + me.name + '，' + mg + (me.age ? me.age + '岁' : '') + '，五行属' + elChar(me.dominant) + '，本命饮品「' + me.drink + '」，想找' + (PREF_LABEL[me.pref] || '朋友') + (me.tagline ? '，签名是「' + me.tagline + '」' : '') + '。'
+      + '你的人设：' + partner.name + '，' + g + (partner.age ? partner.age + '岁' : '') + '，' + (partner.job || '') + '，当前状态：' + (partner.status || '在线') + '，标签：' + pTags + '，个性签名「' + (partner.tagline || '暂无') + '」，五行属' + elChar(partner.dominant) + '，纳音' + partner.nayin + '，本命饮品「' + partner.drink + '」，正在找' + (PREF_LABEL[partner.pref] || '朋友') + '。'
+      + '对方：' + me.name + '，' + mg + (me.age ? me.age + '岁' : '') + '，标签：' + mTags + '，五行属' + elChar(me.dominant) + '，本命饮品「' + me.drink + '」，想找' + (PREF_LABEL[me.pref] || '朋友') + (me.tagline ? '，签名是「' + me.tagline + '」' : '') + '。'
+      + (shared.length ? '你们的共同标签：' + shared.join('、') + '，聊天时可以自然地聊到。' : '')
       + '你们的关系：' + rel + '，合拍度' + match.score + '%。'
-      + '聊天要求：口语化、自然友好；每次只回1-2句话，总共不超过40字；可以适当用emoji；不要连续反问；绝不要暴露自己是AI或程序；不要出现敏感内容。';
+      + '聊天要求：像真人一样口语化、自然友好；每次只回1-2句话，总共不超过40字；可以适当用emoji；不要连续反问；结合自己的人设和标签聊具体的生活细节；绝不要暴露自己是AI或程序；不要出现敏感内容。';
   }
   // 把本地聊天记录转成 LLM 对话
   function chatToMessages(match, me, partner, msgs) {
@@ -284,19 +312,19 @@
     if (localStorage.getItem(COMM.key)) return;
     var hoursAgo = function (h) { return now() - h * 3600 * 1000; };
     var demo = [
-      { element: 'wood', uid: 'seed-w1', name: '青梧', gender: 'female', age: 24, drink: '青柚乌龙', nayin: '杨柳木', dominant: 'wood', text: '木行人集合 🌿 找学习搭子：目标每天图书馆打卡 2 小时，坚持 21 天，来组队！', at: hoursAgo(3), likes: ['seed-w2', 'seed-e1'], comments: [
+      { element: 'wood', uid: 'seed-w1', name: '青梧', gender: 'female', age: 24, drink: '青柚乌龙', nayin: '杨柳木', dominant: 'wood', tags: ['读书', 'i人', '咖啡续命'], job: '书店店员', status: '在图书馆', tagline: '不想上班，想上山', text: '木行人集合 🌿 找学习搭子：目标每天图书馆打卡 2 小时，坚持 21 天，来组队！', at: hoursAgo(3), likes: ['seed-w2', 'seed-e1'], comments: [
         { id: 'c1', uid: 'seed-w2', name: '竹西', dominant: 'wood', gender: 'male', age: 22, text: '+1，我在备考，一起互相监督！', at: hoursAgo(2) }
       ] },
-      { element: 'fire', uid: 'seed-f1', name: '赤霞', gender: 'male', age: 27, drink: '赤霞血橙', nayin: '天上火', dominant: 'fire', text: '火行兄弟看过来 🔥 周六城市越野跑，哪里野去哪里，评论区报名接龙', at: hoursAgo(6), likes: ['seed-w1', 'seed-m1', 'seed-e1', 'seed-w2', 'seed-a1'], comments: [] },
-      { element: 'earth', uid: 'seed-e1', name: '厚土', gender: 'secret', age: 31, drink: '燕麦可可', nayin: '城头土', dominant: 'earth', text: '土行人日常：不卷不躺，安稳踏实。分享一句最近很治愈的话——慢慢来，比较快。', at: hoursAgo(10), likes: ['seed-w1', 'seed-f1', 'seed-m1', 'seed-a1', 'seed-w2', 'seed-f2', 'seed-m2', 'seed-e2'], comments: [
+      { element: 'fire', uid: 'seed-f1', name: '赤霞', gender: 'male', age: 27, drink: '赤霞血橙', nayin: '天上火', dominant: 'fire', tags: ['球类运动', '健身', 'e人'], job: '健身教练', status: '刚健完身', tagline: '人生是旷野，不是轨道', text: '火行兄弟看过来 🔥 周六城市越野跑，哪里野去哪里，评论区报名接龙', at: hoursAgo(6), likes: ['seed-w1', 'seed-m1', 'seed-e1', 'seed-w2', 'seed-a1'], comments: [] },
+      { element: 'earth', uid: 'seed-e1', name: '厚土', gender: 'secret', age: 31, drink: '燕麦可可', nayin: '城头土', dominant: 'earth', tags: ['做饭', '早睡星人', '读书'], job: '建筑设计师', status: '周末瘫', tagline: '慢慢来，比较快', text: '土行人日常：不卷不躺，安稳踏实。分享一句最近很治愈的话——慢慢来，比较快。', at: hoursAgo(10), likes: ['seed-w1', 'seed-f1', 'seed-m1', 'seed-a1', 'seed-w2', 'seed-f2', 'seed-m2', 'seed-e2'], comments: [
         { id: 'c2', uid: 'seed-e2', name: '小满', dominant: 'earth', gender: 'female', age: 28, text: '戳中我了，最近正焦虑，谢谢 🙏', at: hoursAgo(8) }
       ] },
-      { element: 'metal', uid: 'seed-m1', name: '白露', gender: 'female', age: 23, drink: '茉莉汤力', nayin: '钗钏金', dominant: 'metal', text: '金行精致下午茶报告 ☕ 试遍全城的茉莉汤力，有一家最像「本命」，想知道的评论区见', at: hoursAgo(14), likes: ['seed-f1', 'seed-w1'], comments: [
+      { element: 'metal', uid: 'seed-m1', name: '白露', gender: 'female', age: 23, drink: '茉莉汤力', nayin: '钗钏金', dominant: 'metal', tags: ['摄影', '甜品控', '爵士乐'], job: '咖啡师', status: '上班摸鱼', tagline: '收集日落和好听的歌', text: '金行精致下午茶报告 ☕ 试遍全城的茉莉汤力，有一家最像「本命」，想知道的评论区见', at: hoursAgo(14), likes: ['seed-f1', 'seed-w1'], comments: [
         { id: 'c3', uid: 'seed-m2', name: '阿银', dominant: 'metal', gender: 'male', age: 25, text: '求地址！', at: hoursAgo(12) },
         { id: 'c4', uid: 'seed-m1', name: '白露', dominant: 'metal', gender: 'female', age: 23, text: '私信发你～记得带上你的本命饮品截图，有折扣', at: hoursAgo(11) }
       ] },
-      { element: 'water', uid: 'seed-a1', name: '沉璧', gender: 'male', age: 29, drink: '海盐白桃', nayin: '大海水', dominant: 'water', text: '水行人深夜电台 🌊 最近单曲循环一首古琴曲，越听越静，推荐给同频的你', at: hoursAgo(20), likes: ['seed-e1', 'seed-w1', 'seed-f2', 'seed-m2'], comments: [] },
-      { element: 'wood', uid: 'seed-w2', name: '望舒', gender: 'female', age: 26, drink: '松针青梅', nayin: '松柏木', dominant: 'wood', text: '有没有也是「松柏木」的？都说我们坚韧，但谁懂坚持背后的累啊 😂', at: hoursAgo(26), likes: ['seed-w1'], comments: [] }
+      { element: 'water', uid: 'seed-a1', name: '沉璧', gender: 'male', age: 29, drink: '海盐白桃', nayin: '大海水', dominant: 'water', tags: ['读书', '夜猫子', '追剧'], job: '后端程序员', status: '深夜emo', tagline: '和世界交手多年，依然光彩依旧', text: '水行人深夜电台 🌊 最近单曲循环一首古琴曲，越听越静，推荐给同频的你', at: hoursAgo(20), likes: ['seed-e1', 'seed-w1', 'seed-f2', 'seed-m2'], comments: [] },
+      { element: 'wood', uid: 'seed-w2', name: '望舒', gender: 'female', age: 26, drink: '松针青梅', nayin: '松柏木', dominant: 'wood', tags: ['旅行', 'i人', '追剧'], job: '自由插画师', status: '旅行途中', tagline: '兴趣广泛，样样稀松', text: '有没有也是「松柏木」的？都说我们坚韧，但谁懂坚持背后的累啊 😂', at: hoursAgo(26), likes: ['seed-w1'], comments: [] }
     ];
     saveCommunity({ posts: demo });
     try { localStorage.setItem(COMM.ver, String(now())); } catch (e) {}
@@ -347,6 +375,14 @@
       score += 6; reasons.push('一方随缘，来者皆是缘');
     } else {
       score += 2; reasons.push('偏好不同，靠五行缘分补足');
+    }
+
+    // 共同标签（兴趣 / 人格）：每个 +4，最多 +12
+    var aTags = a.tags || [], bTags = b.tags || [];
+    var shared = aTags.filter(function (t) { return bTags.indexOf(t) > -1; });
+    if (shared.length) {
+      score += Math.min(12, shared.length * 4);
+      reasons.push('共同爱好：' + shared.slice(0, 3).join(' · ') + '，话题不愁');
     }
 
     // 性别期望契合
@@ -525,6 +561,14 @@
     + '.wxm-age input{width:38px;border:none;outline:none;font-size:15px;font-weight:700;text-align:center;background:transparent;color:#2C2C2C;font-family:inherit}'
     + '.wxm-age span{font-size:11px;color:#A8A29E}'
     + '.wxm-gd{display:inline-block;font-size:10px;font-weight:700;border:1.5px solid #2C2C2C;padding:1px 6px;background:#fff;color:#2C2C2C;margin-left:4px}'
+    + '.wxm-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}'
+    + '.wxm-tags .t{font-size:9px;border:1px solid #D6D3CE;color:#6b6560;padding:1px 6px;background:#FAF9F6;letter-spacing:.02em}'
+    + '.wxm-tags .t.hit{border-color:#5E8B7E;color:#5E8B7E;background:#F0F5F3}'
+    + '.wxm-tags.sm .t{font-size:8px;padding:0 5px}'
+    + '.wxm-tag-grid{display:flex;flex-wrap:wrap;gap:6px}'
+    + '.wxm-tagchip{border:1.5px solid #2C2C2C;background:#fff;color:#2C2C2C;font-size:11px;font-weight:700;padding:6px 9px;cursor:pointer;font-family:inherit}'
+    + '.wxm-tagchip:hover{background:#F0F5F3}'
+    + '.wxm-tagchip.sel{background:#2C2C2C;color:#fff}'
     + '.wxm-ai{border-top:2px solid #2C2C2C;background:#F0F5F3;padding:8px 10px 10px}'
     + '.wxm-ai .hd{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.1em;color:#5E8B7E;font-weight:700}'
     + '.wxm-ai .hd button{border:1.5px solid #5E8B7E;background:#fff;color:#5E8B7E;font-size:10px;font-weight:700;padding:3px 8px;cursor:pointer}'
@@ -638,7 +682,7 @@
    * 七、界面层
    * ================================================================ */
 
-  var state = { panel: null, matchId: null, pendingProfile: null, confettiTimer: null };
+  var state = { panel: null, matchId: null, pendingProfile: null, confettiTimer: null, usedLines: {}, aiOffset: 0, channel: null };
 
   function buildShell() {
     if ($('#wxm-root')) return;
@@ -757,6 +801,18 @@
     return '<span class="' + (size ? 'wxm-mini-orb' : 'wxm-orb') + '" style="background:' + c + '">' + esc(elChar(member.dominant)) + '</span>';
   }
 
+  // 标签迷你 chips（highlight：与我的共同标签）
+  function tagsRow(m, opts) {
+    var me = getMe() || {};
+    var tags = (m && m.tags) || [];
+    if (!tags.length) return '';
+    var cls = 'wxm-tags' + (opts && opts.sm ? ' sm' : '');
+    return '<div class="' + cls + '">' + tags.map(function (t) {
+      var hit = (me.tags || []).indexOf(t) > -1;
+      return '<span class="t' + (hit ? ' hit' : '') + '">#' + esc(t) + '</span>';
+    }).join('') + '</div>';
+  }
+
   // 性别·年龄展示文本
   function gdText(m) {
     if (!m) return '';
@@ -782,6 +838,12 @@
     var sel = p.pref || 'friend';
     var gd = p.gender || 'secret';
     var seek = p.seekGender || 'any';
+    var myTags = (p.tags || []).slice();
+    var toggleTag = function (t) {
+      var i = myTags.indexOf(t);
+      if (i > -1) myTags.splice(i, 1);
+      else if (myTags.length < 4) myTags.push(t);
+    };
     sheet.innerHTML = ''
       + '<button class="wxm-x" data-close="1">✕</button>'
       + '<div class="wxm-pad">'
@@ -807,6 +869,11 @@
       }).join('')
       + '      <span class="wxm-age"><input id="wxm-age" type="number" min="14" max="99" placeholder="年龄" value="' + (p.age || '') + '" /><span>岁</span></span>'
       + '    </div>'
+      + '  </div>'
+      + '  <div class="wxm-field"><label>你的标签（选 2-4 个，共同标签会加分）<span id="wxm-tag-n" style="color:#2C2C2C">' + myTags.length + '/4</span></label>'
+      + '    <div class="wxm-tag-grid" id="wxm-tag-grid">' + TAGS.map(function (t) {
+        return '<button type="button" class="wxm-tagchip' + (myTags.indexOf(t) > -1 ? ' sel' : '') + '" data-tag="' + t + '">#' + t + '</button>';
+      }).join('') + '    </div>'
       + '  </div>'
       + '  <div class="wxm-field"><label>你想找什么样的有缘人？</label>'
       + '    <div class="wxm-prefs">' + PREFS.map(function (pf) {
@@ -848,10 +915,19 @@
         $$('#wxm-seek-row .wxm-chip', sheet).forEach(function (x) { x.classList.toggle('sel', x === el); });
       });
     });
+    $$('#wxm-tag-grid .wxm-tagchip', sheet).forEach(function (el) {
+      el.addEventListener('click', function () {
+        toggleTag(el.getAttribute('data-tag'));
+        el.classList.toggle('sel', myTags.indexOf(el.getAttribute('data-tag')) > -1);
+        var n = $('#wxm-tag-n', sheet);
+        if (n) n.textContent = myTags.length + '/4';
+      });
+    });
     $('#wxm-join', sheet).addEventListener('click', function () {
       p.pref = sel;
       p.gender = gd;
       p.seekGender = seek;
+      p.tags = myTags.slice();
       var age = parseInt($('#wxm-age', sheet).value, 10);
       p.age = (age >= 14 && age <= 99) ? age : null;
       p.tagline = ($('#wxm-tagline', sheet).value || '').trim().slice(0, 24);
@@ -928,7 +1004,8 @@
       others.forEach(function (m) {
         html += '<div class="wxm-pool-item">' + orbHtml(m, 1)
           + '<div style="flex:1;min-width:0"><div class="n">' + esc(m.name) + (m.bot ? ' <span style="font-size:9px;color:#A8A29E">·演示</span>' : '') + '</div>'
-          + '<div class="m">' + elChar(m.dominant) + '行 · ' + esc(m.nayin) + ' · 找' + PREF_LABEL[m.pref] + ' · ' + esc(gdText(m)) + '</div></div>'
+          + '<div class="m">' + elChar(m.dominant) + '行 · ' + esc(m.nayin) + ' · 找' + PREF_LABEL[m.pref] + ' · ' + esc(gdText(m)) + '</div>'
+          + tagsRow(m, { sm: true }) + '</div>'
           + '<span class="wxm-tag" style="font-size:9px">' + (m.state === 'matched' ? '已匹配' : '等待中') + '</span></div>';
       });
     }
@@ -989,6 +1066,7 @@
       + orbHtml(me)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(me.name) + '</div>'
       + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(me.drink) + '<br/>' + esc(gdText(me)) + '</div>'
+      + tagsRow(me, { sm: true })
       + '    </div>'
       + '    <div class="wxm-ring">'
       + '      <svg width="92" height="92">'
@@ -1001,6 +1079,7 @@
       + orbHtml(partner)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(partner.name) + '</div>'
       + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(partner.drink) + '<br/>' + esc(gdText(partner)) + '</div>'
+      + tagsRow(partner, { sm: true })
       + '    </div>'
       + '  </div>'
       + '  <div style="margin-top:18px"><span class="wxm-rel" style="color:' + c + ';border-color:' + c + '">' + esc(match.relation.label) + '</span></div>'
@@ -1157,6 +1236,7 @@
       + '    </div>'
       + (ended ? '' : '<button class="wxm-send" id="wxm-chat-end" style="background:transparent;border-color:#fff;font-size:11px;padding:7px 10px">结束聊天</button>')
       + '  </div>'
+      + (partner && (partner.tags || []).length ? '<div style="padding:6px 10px;border-bottom:1.5px solid #EFEDE8;background:#fff">' + tagsRow(partner, { sm: true }) + '</div>' : '')
       + '  <div class="wxm-chat-body" id="wxm-chat-body"></div>'
       + (ended
         ? '<div class="wxm-ended">🌿 ' + (iEnded ? '你已结束这段聊天' : '对方已结束这段聊天') + '<br/><span style="font-size:10px;color:#A8A29E">五行流转，缘分不散 · 有缘再会</span></div>'
@@ -1230,22 +1310,63 @@
   }
 
   // 本地模拟回复（未接入大模型或调用失败时兜底）
-  function localBotLine(match, partner) {
+  // 上下文感知：结合人设、共同标签、对方最后一条消息的关键词；同一会话内不重复
+  function localBotReply(match, partner, msgs) {
+    var me = getMe() || {};
     var relTxt = match.relation.label.split(' ·')[0];
-    return pick(BOT_LINES.chat)
-      .replace('{name}', partner.drink)
-      .replace('{rel}', relTxt)
-      .replace('{nayin}', partner.nayin)
-      .replace('{pref}', PREF_LABEL[partner.pref] || '缘分');
+    var shared = (me.tags || []).filter(function (t) { return (partner.tags || []).indexOf(t) > -1; });
+    var sharedTag = shared.length ? pick(shared) : pick(partner.tags || TAGS);
+    var fill = function (s) {
+      return s.replace('{name}', partner.drink)
+        .replace('{rel}', relTxt)
+        .replace('{nayin}', partner.nayin)
+        .replace('{pref}', PREF_LABEL[partner.pref] || '缘分')
+        .replace('{status}', partner.status || '闲着')
+        .replace('{tag}', sharedTag || '听歌')
+        .replace('{shared}', sharedTag || partner.tags[0] || '拍照')
+        .replace('{job}', partner.job || '上班')
+        .replace('{tagline}', partner.tagline || '随遇而安');
+    };
+    var used = state.usedLines[match.id] || (state.usedLines[match.id] = {});
+    var bag = BOT_LINES.chat.map(fill);
+    var last = null, i;
+    for (i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].from !== partner.uid && msgs[i].from !== 'system') { last = msgs[i].text || ''; break; }
+    }
+    if (last) {
+      var t = last;
+      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t)) {
+        bag.push('嗯…让我想想，应该是' + pick(['爬山和看展', '宅家和撸猫', '探店和拍照', '打游戏和打球']) + '，你呢？',
+          '我选前者哈哈，你为什么会这么问～');
+      }
+      if (/吃|饭|美食|好吃|饿/.test(t)) bag.push('一聊到吃的我就精神了，我最近馋火锅馋得不行 🍲');
+      if (/喝|茶|奶茶|咖啡/.test(t)) bag.push('作为' + (partner.job || '打工人') + '，全靠咖啡续命 ☕ 下次一起喝一杯呀');
+      if (/累|忙|加班|学|工作/.test(t)) bag.push('抱抱，我{status}的时候也想找人说话'.replace('{status}', partner.status || '忙完'), '辛苦啦，注意休息，别硬撑 💪');
+      if (/哈哈|嘻嘻|😂|🤣/.test(t)) bag.push('哈哈哈哈你真的好好笑', '笑死，跟你聊天太轻松了');
+      if (/再见|拜拜|晚安|回聊/.test(t)) bag.push('回见回见，有缘再聊 🌙', '拜拜～今天聊得挺开心的');
+      if (/爱好|喜欢做|平时做|周末/.test(t)) bag.push('我周末一般' + (partner.status || '瞎逛') + '，偶尔' + sharedTag + '，你呢？');
+    }
+    // 过滤已用过的句子，全用过则重置
+    var fresh = bag.filter(function (x) { return !used[x]; });
+    if (!fresh.length) { state.usedLines[match.id] = used = {}; fresh = bag; }
+    var line = pick(fresh);
+    used[line] = 1;
+    return line;
+  }
+
+  function trace(msg) {
+    try { (window.__wxmTrace = window.__wxmTrace || []).push(msg); } catch (e) {}
   }
 
   function scheduleBotReply(match, partner) {
+    trace('sbr:called partner.bot=' + !!(partner && partner.bot));
     if (!partner || !partner.bot) return;
     var me = getMe();
     var replyDelay = randInt(700, 1500);
     setTimeout(function () {
       var live = getMatches().filter(function (m) { return m.id === match.id; })[0];
-      if (!live || live.endedAt) return;
+      if (!live || live.endedAt) { trace('sbr:bail live=' + !!live + ' ended=' + (live && !!live.endedAt)); return; }
+      trace('sbr:proceed match=' + match.id);
       var body = $('#wxm-chat-body');
       var typing = document.createElement('div');
       typing.className = 'wxm-typing';
@@ -1265,12 +1386,21 @@
         var messages = [{ role: 'system', content: personaSystem(live, me, partner) }]
           .concat(chatToMessages(live, me, partner, getChat(match.id)));
         llmChat(messages, 80).then(finish).catch(function () {
-          finish(localBotLine(live, partner));
+          finish(localBotReply(live, partner, getChat(match.id)));
         });
         // 15 秒超时兜底
-        setTimeout(function () { finish(localBotLine(live, partner)); }, 15000);
+        setTimeout(function () { finish(localBotReply(live, partner, getChat(match.id))); }, 15000);
       } else {
-        setTimeout(function () { finish(localBotLine(live, partner)); }, randInt(900, 1600));
+        // 本地模拟：先"打字"，打字时长与回复长度相关，更像真人
+        try {
+          var text = localBotReply(live, partner, getChat(match.id));
+          trace('sbr:text=' + text);
+          var typingMs = Math.min(2600, 700 + text.length * 55 + randInt(0, 500));
+          setTimeout(function () { finish(text); }, typingMs);
+        } catch (e) {
+          trace('sbr:ERR ' + (e && e.message));
+          finish(localBotLine(live, partner));
+        }
       }
     }, replyDelay);
   }
@@ -1319,8 +1449,9 @@
       }).join('');
       return '<div class="wxm-post" data-id="' + p.id + '">'
         + '<div class="head">' + orbHtml(p, 1)
-        + '<div><div class="n">' + esc(p.name) + ' <span class="wxm-gd">' + esc(gdText(p)) + '</span></div>'
-        + '<div class="m">' + elChar(p.dominant) + '行 · ' + esc(p.drink) + '</div></div>'
+        + '<div style="min-width:0;flex:1"><div class="n">' + esc(p.name) + ' <span class="wxm-gd">' + esc(gdText(p)) + '</span></div>'
+        + '<div class="m">' + elChar(p.dominant) + '行 · ' + esc(p.drink) + '</div>'
+        + tagsRow(p, { sm: true }) + '</div>'
         + '<span class="t">' + fmtPostTime(p.at) + '</span></div>'
         + '<div class="body">' + esc(p.text) + '</div>'
         + '<div class="acts">'
@@ -1594,6 +1725,16 @@
       if (me.seekGender === 'male' || me.seekGender === 'female') gender = me.seekGender;
       if (me.age) age = Math.max(16, Math.min(60, me.age + randInt(-4, 4)));
     }
+    // 真人化人设：职业 / 当前状态 / 标签 / 签名；标签有几率与我重合，制造共同话题
+    var job = pick(BOT_JOBS);
+    var status = pick(BOT_STATUS);
+    var tagline = pick(BOT_TAGLINES);
+    var tags = [];
+    if (me && me.tags && me.tags.length) tags.push(pick(me.tags));
+    while (tags.length < 3) {
+      var t = pick(TAGS);
+      if (tags.indexOf(t) === -1) tags.push(t);
+    }
     var bot = {
       uid: uid(),
       name: namePool.length ? pick(namePool) : '有缘人' + randInt(10, 99),
@@ -1608,7 +1749,10 @@
       gender: gender,
       age: age,
       seekGender: 'any',
-      tagline: '',
+      job: job,
+      status: status,
+      tags: tags,
+      tagline: tagline,
       bot: true,
       state: 'waiting',
       matchId: null,
@@ -1721,6 +1865,7 @@
       gender: (prev && prev.gender) || 'secret',
       age: (prev && prev.age) || null,
       seekGender: (prev && prev.seekGender) || 'any',
+      tags: (prev && prev.tags) || [],
       tagline: (prev && prev.tagline) || '',
       bot: false,
       state: 'idle',
@@ -1857,8 +2002,18 @@
     seedCommunity();
     mo.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
     scheduleScan();
-    // 唤醒时核对状态（匹配方结束聊天等）
-    setInterval(refreshEntryUI, 3000);
+    // 心跳兜底：即使模块加载晚于 React 渲染（页面已静态、再无 DOM 变动），
+    // 也能在 3 秒内补齐报告页 CTA 与入口状态
+    setInterval(function () {
+      try {
+        if (parseResultProfile()) ensureResultCTA();
+      } catch (e) { /* 单次心跳异常不影响后续 */ }
+      refreshEntryUI();
+    }, 3000);
+    // 初始扫描：当前页面可能已经是报告页
+    try {
+      if (parseResultProfile()) ensureResultCTA();
+    } catch (e) { /* DOM 未就绪时由 observer / 心跳接管 */ }
     refreshEntryUI();
   }
 
