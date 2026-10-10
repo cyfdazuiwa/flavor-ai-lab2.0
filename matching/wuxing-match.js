@@ -57,6 +57,7 @@
   ];
 
   var PREF_LABEL = { friend: '朋友', study: '学习搭子', meal: '饭搭子', suiyuan: '随缘' };
+  var PREF_LABEL_EN = { friend: 'friend', study: 'study buddy', meal: 'foodie buddy', suiyuan: 'fate-mate' };
 
   // 12 种本命饮品档案（与主应用数据一致，用于模拟有缘人）
   var DRINKS = [
@@ -1893,11 +1894,20 @@
         var topic = elChar(channel) + '行';
         var fallback = function () {
           ta.removeAttribute('readonly');
-          ta.value = pick([
-            '【' + topic + '搭子招募】本人五行属' + elChar(channel) + '，本命饮品' + me.drink + '，想找' + PREF_LABEL[me.pref] + '。不设套路，先聊为敬，评论区集合！',
-            '同为' + topic + '的朋友举手 🙋 我是想找' + PREF_LABEL[me.pref] + '的' + me.name + '，最近在琢磨周末去哪玩，评论区出出主意？',
-            '发布一条寻人启事：寻找' + topic + '同频灵魂。我的优势：本命饮品口味在线，聊天不冷场。有意者评论区扣 1'
-          ]);
+          if (isEn()) {
+            var elEn = CN2EN_EL[channel] || channel;
+            ta.value = pick([
+              '[' + elEn + ' buddy wanted] I am a ' + elEn + ' element, signature drink ' + me.drink + ', looking for ' + (PREF_LABEL_EN[me.pref] || 'friends') + '. No games — say hi in the comments!',
+              'Fellow ' + elEn + ' folks raise your hand 🙋 ' + me.name + ' here, looking for a ' + (PREF_LABEL_EN[me.pref] || 'friend') + '. Weekend ideas? Drop them below',
+              'Missing-person notice: seeking a kindred ' + elEn + ' soul. My strengths: great taste in drinks, never a dull chat. Comment 1 to join'
+            ]);
+          } else {
+            ta.value = pick([
+              '【' + topic + '搭子招募】本人五行属' + elChar(channel) + '，本命饮品' + me.drink + '，想找' + PREF_LABEL[me.pref] + '。不设套路，先聊为敬，评论区集合！',
+              '同为' + topic + '的朋友举手 🙋 我是想找' + PREF_LABEL[me.pref] + '的' + me.name + '，最近在琢磨周末去哪玩，评论区出出主意？',
+              '发布一条寻人启事：寻找' + topic + '同频灵魂。我的优势：本命饮品口味在线，聊天不冷场。有意者评论区扣 1'
+            ]);
+          }
         };
         if (llmEnabled()) {
           var me2 = me;
@@ -2321,6 +2331,12 @@
     '这个社区还没有帖子': 'No posts here yet',
     '来抢占第一层楼吧 ✦': 'Be the first to post ✦',
     '—— 同气相求 · 同声相应 ——': '—— Kindred spirits, one voice ——',
+    '完成五行测试后即可发帖互动': 'Finish the test to post and interact',
+    '当前可自由浏览各社区': 'Browsing is open to everyone',
+    '尚未入池': 'Not in the pool yet',
+    '完成测试后，在报告页点击「进入匹配池」': 'Finish the test, then tap Enter Match Pool on the report page',
+    '填写偏好即可开始缘分匹配': 'Set your preferences to start matching',
+    '池中暂时只有你一个人<br/>点击下方「邀请有缘人」体验匹配': 'You are the only one here right now<br/>Invite a match below to try it out',
     '刚刚': 'just now',
     '☁️ 接入云端，匹配真实用户': '☁️ Go online — match real users',
     '接入云端': 'Go online',
@@ -2409,7 +2425,34 @@
     // 双纳音饮品建议
     '你如大海水般包容智慧，善于理解他人。建议设立清晰的边界，你的善良需要有锋芒，才能更好地保护自己。': 'Like ocean water, you understand people deeply. Set clear boundaries — kindness needs an edge to protect itself.',
     '你是水木交融的灵动之人，既有水的智慧又有木的生机。建议发挥你的创造力，你独特的视角会给你带来意想不到的机遇。': 'Water wisdom meets wood vitality in you. Unleash your creativity — your unique view opens unexpected doors.',
-    '选择': 'Select '
+    '选择': 'Select ',
+    // 社区种子帖与评论（演示内容，展示时翻译）
+    '木行人集合 🌿 找学习搭子：目标每天图书馆打卡 2 小时，坚持 21 天，来组队！': 'Wood folks assemble 🌿 Looking for a study buddy: 2 hours of library time daily for 21 days — join me!',
+    '+1，我在备考，一起互相监督！': '+1, I am prepping for exams — let us keep each other accountable!',
+    '火行兄弟看过来 🔥 周六城市越野跑，哪里野去哪里，评论区报名接龙': 'Fire folks 🔥 City trail run this Saturday — sign up in the comments',
+    '土行人日常：不卷不躺，安稳踏实。分享一句最近很治愈的话——慢慢来，比较快。': 'Earth folks daily: no grinding, no lying flat. A healing thought — slowly is the fastest way.',
+    '戳中我了，最近正焦虑，谢谢 🙏': 'That hit home — I needed this 🙏',
+    '金行精致下午茶报告 ☕ 试遍全城的茉莉汤力，有一家最像「本命」，想知道的评论区见': "Metal folks' afternoon tea report ☕ Tried every Jasmine Tonic in town — one tastes just like the real thing. Ask in the comments",
+    '求地址！': 'Address please!',
+    '私信发你～记得带上你的本命饮品截图，有折扣': 'DMing you — bring your signature drink screenshot for a discount',
+    '水行人深夜电台 🌊 最近单曲循环一首古琴曲，越听越静，推荐给同频的你': 'Water folks late-night radio 🌊 On repeat: a guqin piece that calms everything. For kindred souls',
+    '有没有也是「松柏木」的？都说我们坚韧，但谁懂坚持背后的累啊 😂': 'Any fellow Pine Cedar here? Everyone says we are resilient — but who knew perseverance could be this tiring 😂',
+    '在「木行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Wood community… everyone here can see it',
+    '在「火行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Fire community… everyone here can see it',
+    '在「土行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Earth community… everyone here can see it',
+    '在「金行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Metal community… everyone here can see it',
+    '在「水行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Water community… everyone here can see it',
+    '—— 同气相求 · 同声相应 ——': '—— Kindred spirits, one voice ——',
+    '完成五行测试后即可发帖互动': 'Finish the test to post and interact',
+    '当前可自由浏览各社区': 'Browsing is open to everyone',
+    '尚未入池': 'Not in the pool yet',
+    '完成测试后，在报告页点击「进入匹配池」': 'Finish the test, then tap Enter Match Pool on the report page',
+    '填写偏好即可开始缘分匹配': 'Set your preferences to start matching',
+    '池中暂时只有你一个人<br/>点击下方「邀请有缘人」体验匹配': 'You are the only one here right now<br/>Invite a match below to try it out',
+    '过往缘分': 'Past bonds',
+    '天机推演中… 有缘人入池后即刻为你撮合': 'The oracle is working — you will be paired as matches arrive',
+    '池中暂时只有你一个人': 'You are the only one in the pool right now',
+    '点击下方「邀请有缘人」体验匹配': 'Tap below to invite a match and try it out'
   };
   var EN2ZH = {};
   Object.keys(ZH2EN).forEach(function (k) {
@@ -2447,7 +2490,8 @@
     { re: /(\d+)岁/g, en: function (m, g1) { return g1 + ' yrs'; } },
     { re: /· 演示/g, en: '· demo' },
     { re: /（演示）/g, en: ' (demo)' },
-    { re: /^在「(.)行社区」说点什么/g, en: function (m, g1) { return 'Say something in the ' + CN2EN_EL[g1]; } },
+    { re: /^(\d+) 帖$/, en: function (m, g1) { return g1 + (g1 === '1' ? ' post' : ' posts'); } },
+    { re: /期望：(朋友|学习搭子|饭搭子|随缘)/g, en: function (m, g1) { var M = { '朋友': 'Friends', '学习搭子': 'Study Buddy', '饭搭子': 'Foodie Buddy', '随缘': 'Open to Fate' }; return 'Looking for ' + M[g1]; } },
     { re: /^以 (.+)（(.)行）的身份发帖$/, en: function (m, g1, g2) { return 'Posting as ' + g1 + ' (' + CN2EN_EL[g2] + ')'; } }
   ];
   var RULES_ZH = [
@@ -2474,6 +2518,8 @@
     { re: /Looking for (Friends|Study Buddy|Foodie Buddy|Open to Fate)/g, zh: function (m, g1) { var M = { 'Friends': '朋友', 'Study Buddy': '学习搭子', 'Foodie Buddy': '饭搭子', 'Open to Fate': '随缘' }; return '找' + (M[g1] || g1); } },
     { re: /(\d+) yrs/g, zh: function (m, g1) { return g1 + '岁'; } },
     { re: /· demo/g, zh: '· 演示' },
+    { re: /^(\d+) posts?$/, zh: function (m, g1) { return g1 + ' 帖'; } },
+    { re: /Looking for (Friends|Study Buddy|Foodie Buddy|Open to Fate)/g, zh: function (m, g1) { var M = { 'Friends': '朋友', 'Study Buddy': '学习搭子', 'Foodie Buddy': '饭搭子', 'Open to Fate': '随缘' }; return '期望：' + M[g1]; } },
     { re: / \(demo\)/g, zh: '（演示）' }
   ];
   var EN2CN_EL = {}; Object.keys(CN2EN_EL).forEach(function (k) { EN2CN_EL[CN2EN_EL[k]] = k; });
