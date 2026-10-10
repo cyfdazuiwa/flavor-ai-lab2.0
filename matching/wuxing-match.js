@@ -1055,7 +1055,7 @@
 
     var fabComm = document.createElement('button');
     fabComm.id = 'wxm-fab-comm';
-    fabComm.innerHTML = '🏯 五行社区';
+    fabComm.innerHTML = '🏯 <span id="wxm-fab-comm-label">五行社区</span>';
     fabComm.addEventListener('click', function () { openPanel('community'); });
     document.body.appendChild(fabComm);
 
@@ -2406,6 +2406,11 @@
     '连接中…': 'Connecting…',
     '✓ 连接成功！在下方登录或注册账号': '✓ Connected! Sign in or sign up below',
     '我知道了': 'Got it',
+    '🏯 五行社区': '🏯 Wu Xing Community',
+    '🔮 匹配池': '🔮 Match Pool',
+    '💬 与有缘人聊天': '💬 Chat with your match',
+    '⏳ 匹配池 · 缘分推演中': '⏳ Match Pool · consulting the oracle',
+    '🔮 有缘人': '🔮 Your match',
     // 气息 / 温度 / 景象短描述（答题轮播与卡片副标题）
     '混合着木柴的烟熏': 'Woody smoke',
     '带着晨露的冷冽': 'Crisp morning dew',
