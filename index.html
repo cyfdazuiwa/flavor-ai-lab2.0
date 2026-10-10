@@ -80,7 +80,7 @@
         
         // 观察所有图片
         const observeImages = () => {
-          document.querySelectorAll('img[data-src], img[src*="cdn.jsdelivr"]').forEach(img => {
+          document.querySelectorAll('img[data-src], img[src*="cdn.jsdelivr"], img[src*="/images/"]').forEach(img => {
             if (!img.dataset.src && img.src) {
               img.dataset.src = img.src;
               // 根据图片位置决定是否立即加载首屏图片
@@ -127,6 +127,41 @@
         background-color: transparent !important;
       }
     </style>
+    <!-- 空闲时预热图片素材：答题页优先，报告页其次（低优先级渐进加载，翻页秒开） -->
+    <script>
+      (function () {
+        var QUIZ_IMAGES = [
+          'scene-forest.jpg', 'scene-ocean.jpg', 'scene-volcano.jpg', 'scene-field.jpg', 'scene-metal.jpg',
+          'scent-forest.jpg', 'scent-ocean.jpg', 'scent-fire.jpg', 'scent-earth.jpg', 'scent-metal.jpg',
+          'season-spring.jpg', 'season-summer.jpg', 'season-autumn.jpg', 'season-winter.jpg',
+          'temp-warm.jpg', 'temp-cool.jpg', 'temp-neutral.jpg',
+          'char-green.png', 'char-red.png', 'char-brown.png', 'char-white.png', 'char-blue.png'
+        ];
+        var RESULT_IMAGES = [
+          'qingyou-wulong.png', 'songzhen-qingmei.png', 'chixia-xuecheng.png', 'nuanjiang-hongcha.png',
+          'xuanmi-ningmeng.png', 'yanmai-kekou.png', 'moli-tangli.png', 'qingka-tangli.png',
+          'haiyan-baitao.png', 'yeqing-lizhi.png', 'qingju-rusuan.png', 'zisu-huamei.png'
+        ];
+        function warm(list, done) {
+          var i = 0;
+          (function step() {
+            if (i >= list.length) { if (done) done(); return; }
+            var l = document.createElement('link');
+            l.rel = 'prefetch';
+            l.as = 'image';
+            l.href = './images/' + list[i++];
+            document.head.appendChild(l);
+            setTimeout(step, 150);
+          })();
+        }
+        function start() {
+          var idle = window.requestIdleCallback || function (f) { setTimeout(f, 1500); };
+          idle(function () { warm(QUIZ_IMAGES, function () { warm(RESULT_IMAGES); }); });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+        else start();
+      })();
+    </script>
     <!-- Umami Analytics -->
     <script defer src="https://umami-production-35ec.up.railway.app/script.js" data-website-id="c594553c-1c3f-40b4-8d8a-f83705159a47"></script>
     <!-- 追踪用户结果页 -->
@@ -243,7 +278,7 @@
     <script src="./override-screenshot.js"></script>
     <script src="./print-card-v3.js"></script>
     <!-- 五行有缘人匹配池模块（?v= 版本号用于更新后绕过 HTTP/SW 缓存） -->
-    <script defer src="./matching/wuxing-match.js?v=2.2.2"></script>
+    <script defer src="./matching/wuxing-match.js?v=2.2.3"></script>
     <script>
       // 注册 Service Worker
       if ('serviceWorker' in navigator) {
