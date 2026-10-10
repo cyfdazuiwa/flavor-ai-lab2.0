@@ -96,6 +96,31 @@
     '快乐最大，其他随缘',
     '收集日落和好听的歌'
   ];
+  var BOT_LINES_EN = {
+    open: [
+      'Hey! The oracle paired us together ✨',
+      'Well well — our elements are in sync!',
+      'Matched with you right after joining — lucky me~',
+      'Hi hi, your profile looks like my kind of person',
+      'Ding dong — your match has arrived 🧋'
+    ],
+    chat: [
+      '{name} is your signature drink? Great taste, I like it too',
+      '{rel} — no wonder chatting with you feels so easy',
+      'What do you usually do? We might have shared hobbies',
+      'Haha you got me — total {nayin} personality here',
+      'Honestly this test is scarily accurate, right?',
+      'Let us grab a drink sometime — my treat 🧋',
+      'Your name sounds lovely — any story behind it?',
+      'So rare to find such a compatible {pref} — gotta cherish this',
+      'BTW I am {status} most days, and I love {tag}',
+      'You are into {shared} too?! Instant conversation material!',
+      'I work as a {job} — what about you?',
+      'My bio says "{tagline}" — figured you would relate 😏',
+      'Bit tired today but this chat is genuinely relaxing',
+      'How do you usually spend weekends? Me, probably {status}'
+    ]
+  };
   var BOT_LINES = {
     open: [
       '你好呀，天机把我们安排到了一起 ✨',
@@ -589,7 +614,7 @@
       + '对方：' + me.name + '，' + mg + (me.age ? me.age + '岁' : '') + '，标签：' + mTags + '，五行属' + elChar(me.dominant) + '，本命饮品「' + me.drink + '」，想找' + (PREF_LABEL[me.pref] || '朋友') + (me.tagline ? '，签名是「' + me.tagline + '」' : '') + '。'
       + (shared.length ? '你们的共同标签：' + shared.join('、') + '，聊天时可以自然地聊到。' : '')
       + '你们的关系：' + rel + '，合拍度' + match.score + '%。'
-      + '聊天要求：像真人一样口语化、自然友好；每次只回1-2句话，总共不超过40字；可以适当用emoji；不要连续反问；结合自己的人设和标签聊具体的生活细节；绝不要暴露自己是AI或程序；不要出现敏感内容。';
+      + '聊天要求：像真人一样口语化、自然友好；每次只回1-2句话，总共不超过40字；可以适当用emoji；不要连续反问；结合自己的人设和标签聊具体的生活细节；绝不要暴露自己是AI或程序；不要出现敏感内容。' + (isEn() ? ' Respond in English.' : '');
   }
   // 把本地聊天记录转成 LLM 对话
   function chatToMessages(match, me, partner, msgs) {
@@ -889,6 +914,18 @@
     + '.wxm-ai-chip{text-align:left;border:1.5px solid #2C2C2C;background:#fff;padding:7px 10px;font-size:12px;color:#2C2C2C;cursor:pointer;line-height:1.5;font-family:inherit}'
     + '.wxm-ai-chip:hover{background:#2C2C2C;color:#fff}'
     + '.wxm-ai-tag{font-size:10px;color:#5E8B7E;margin-bottom:2px}'
+    + '#wxm-lang-btn{position:fixed;top:10px;right:10px;z-index:10005;border:1.5px solid #2C2C2C;background:rgba(255,255,255,.92);color:#2C2C2C;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:.05em;box-shadow:2px 2px 0 rgba(44,44,44,.18)}'
+    + '#wxm-lang-btn:hover{background:#2C2C2C;color:#fff}'
+    + '#wxm-lang-gate{position:fixed;inset:0;z-index:10010;background:#F7F5F0;display:flex;align-items:center;justify-content:center;padding:24px}'
+    + '.wxm-gate-card{max-width:360px;width:100%;text-align:center;border:2px solid #2C2C2C;background:#fff;box-shadow:8px 8px 0 rgba(44,44,44,.9);padding:34px 26px}'
+    + '.wxm-gate-logo{font-family:"Noto Serif SC","Songti SC",serif;font-size:34px;font-weight:700;color:#2C2C2C;letter-spacing:.14em}'
+    + '.wxm-gate-sub{font-size:11px;color:#A8A29E;margin-top:8px;letter-spacing:.18em}'
+    + '.wxm-gate-q{font-size:13px;color:#2C2C2C;margin:26px 0 18px;font-weight:700}'
+    + '.wxm-gate-card button{display:block;width:100%;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;font-size:16px;font-weight:700;padding:14px 0;cursor:pointer;margin-top:12px;font-family:inherit;letter-spacing:.2em;transition:all .15s}'
+    + '.wxm-gate-card button:hover{background:#2C2C2C;color:#fff}'
+    + 'html[lang="en"] .wxm-orb{font-size:15px !important}'
+    + 'html[lang="en"] .wxm-mini-orb{font-size:9px !important}'
+    + 'html[lang="en"] #wxm-fab,html[lang="en"] #wxm-fab-comm{letter-spacing:0}'
     + '#wxm-fab-comm{position:fixed;right:16px;bottom:72px;z-index:9997;display:none;align-items:center;gap:8px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:9px 15px;font-size:13px;font-weight:700;letter-spacing:.08em;cursor:pointer;box-shadow:4px 4px 0 rgba(44,44,44,.22);font-family:inherit}'
     + '#wxm-fab-comm:hover{background:#2C2C2C;color:#fff}'
     + '#wxm-fab-comm.show{display:flex}'
@@ -1122,7 +1159,7 @@
     var cls = 'wxm-tags' + (opts && opts.sm ? ' sm' : '');
     return '<div class="' + cls + '">' + tags.map(function (t) {
       var hit = (me.tags || []).indexOf(t) > -1;
-      return '<span class="t' + (hit ? ' hit' : '') + '">#' + esc(t) + '</span>';
+      return '<span class="t' + (hit ? ' hit' : '') + '">#' + esc(tagDisp(t)) + '</span>';
     }).join('') + '</div>';
   }
 
@@ -1185,7 +1222,7 @@
       + '  </div>'
       + '  <div class="wxm-field"><label>你的标签（选 2-4 个，共同标签会加分）<span id="wxm-tag-n" style="color:#2C2C2C">' + myTags.length + '/4</span></label>'
       + '    <div class="wxm-tag-grid" id="wxm-tag-grid">' + TAGS.map(function (t) {
-        return '<button type="button" class="wxm-tagchip' + (myTags.indexOf(t) > -1 ? ' sel' : '') + '" data-tag="' + t + '">#' + t + '</button>';
+        return '<button type="button" class="wxm-tagchip' + (myTags.indexOf(t) > -1 ? ' sel' : '') + '" data-tag="' + t + '">#' + esc(tagDisp(t)) + '</button>';
       }).join('') + '    </div>'
       + '  </div>'
       + '  <div class="wxm-field"><label>你想找什么样的有缘人？</label>'
@@ -1637,10 +1674,12 @@
   // 本地模拟回复（未接入大模型或调用失败时兜底）
   // 上下文感知：结合人设、共同标签、对方最后一条消息的关键词；同一会话内不重复
   function localBotReply(match, partner, msgs) {
+    var EN = isEn();
+    var LINES = EN ? BOT_LINES_EN : BOT_LINES;
     var me = getMe() || {};
     var relTxt = match.relation.label.split(' ·')[0];
     var shared = (me.tags || []).filter(function (t) { return (partner.tags || []).indexOf(t) > -1; });
-    var sharedTag = shared.length ? pick(shared) : pick(partner.tags || TAGS);
+    var sharedTag = tagDisp(shared.length ? pick(shared) : pick(partner.tags || TAGS));
     var fill = function (s) {
       return s.replace('{name}', partner.drink)
         .replace('{rel}', relTxt)
@@ -1653,23 +1692,43 @@
         .replace('{tagline}', partner.tagline || '随遇而安');
     };
     var used = state.usedLines[match.id] || (state.usedLines[match.id] = {});
-    var bag = BOT_LINES.chat.map(fill);
+    var bag = LINES.chat.map(fill);
     var last = null, i;
     for (i = msgs.length - 1; i >= 0; i--) {
       if (msgs[i].from !== partner.uid && msgs[i].from !== 'system') { last = msgs[i].text || ''; break; }
     }
     if (last) {
       var t = last;
-      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t)) {
-        bag.push('嗯…让我想想，应该是' + pick(['爬山和看展', '宅家和撸猫', '探店和拍照', '打游戏和打球']) + '，你呢？',
+      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t) || /\?$/.test(t)) {
+        if (isEn()) bag.push('Hmm let me think… probably ' + pick(['hiking and galleries', 'cats and couch', 'cafes and photos', 'games and ball games']) + '. You?',
+          'The former, haha — why do you ask?');
+        else bag.push('嗯…让我想想，应该是' + pick(['爬山和看展', '宅家和撸猫', '探店和拍照', '打游戏和打球']) + '，你呢？',
           '我选前者哈哈，你为什么会这么问～');
       }
-      if (/吃|饭|美食|好吃|饿/.test(t)) bag.push('一聊到吃的我就精神了，我最近馋火锅馋得不行 🍲');
-      if (/喝|茶|奶茶|咖啡/.test(t)) bag.push('作为' + (partner.job || '打工人') + '，全靠咖啡续命 ☕ 下次一起喝一杯呀');
-      if (/累|忙|加班|学|工作/.test(t)) bag.push('抱抱，我{status}的时候也想找人说话'.replace('{status}', partner.status || '忙完'), '辛苦啦，注意休息，别硬撑 💪');
-      if (/哈哈|嘻嘻|😂|🤣/.test(t)) bag.push('哈哈哈哈你真的好好笑', '笑死，跟你聊天太轻松了');
-      if (/再见|拜拜|晚安|回聊/.test(t)) bag.push('回见回见，有缘再聊 🌙', '拜拜～今天聊得挺开心的');
-      if (/爱好|喜欢做|平时做|周末/.test(t)) bag.push('我周末一般' + (partner.status || '瞎逛') + '，偶尔' + sharedTag + '，你呢？');
+      if (/吃|饭|美食|好吃|饿|food|eat/.test(t)) {
+        if (isEn()) bag.push('Now you got my attention — I have been craving hotpot 🍲');
+        else bag.push('一聊到吃的我就精神了，我最近馋火锅馋得不行 🍲');
+      }
+      if (/喝|茶|奶茶|咖啡|drink|coffee|tea/.test(t)) {
+        if (isEn()) bag.push('As a ' + (partner.job || 'worker') + ' I run on coffee ☕ Grab a cup with me sometime');
+        else bag.push('作为' + (partner.job || '打工人') + '，全靠咖啡续命 ☕ 下次一起喝一杯呀');
+      }
+      if (/累|忙|加班|学|工作|tired|busy|work/.test(t)) {
+        if (isEn()) bag.push('Aw take it easy — I am here to chat whenever you need ☕', 'Hang in there, do not push too hard 💪');
+        else bag.push('抱抱，我' + (partner.status || '忙完') + '的时候也想找人说话', '辛苦啦，注意休息，别硬撑 💪');
+      }
+      if (/哈哈|嘻嘻|😂|🤣|haha|lol/.test(t)) {
+        if (isEn()) bag.push('Hahaha you are genuinely funny', 'LOL chatting with you is so easy');
+        else bag.push('哈哈哈哈你真的好好笑', '笑死，跟你聊天太轻松了');
+      }
+      if (/再见|拜拜|晚安|回聊|bye|night/.test(t)) {
+        if (isEn()) bag.push('See you — until fate meets again 🌙', 'Bye! Really enjoyed this');
+        else bag.push('回见回见，有缘再聊 🌙', '拜拜～今天聊得挺开心的');
+      }
+      if (/爱好|喜欢做|平时做|周末|hobby|weekend/.test(t)) {
+        if (isEn()) bag.push('Weekends I am usually ' + (partner.status || 'wandering') + ', sometimes ' + sharedTag + '. You?');
+        else bag.push('我周末一般' + (partner.status || '瞎逛') + '，偶尔' + sharedTag + '，你呢？');
+      }
     }
     // 过滤已用过的句子，全用过则重置
     var fresh = bag.filter(function (x) { return !used[x]; });
@@ -2079,6 +2138,397 @@
   }
 
   /* ================================================================
+   * 十三、双语（中 / EN）
+   * 原应用为打包产物：采用「运行时翻译层」——全局字典 + 规则把渲染出的
+   * 文本实时替换（双向，切换无需刷新）；动态内容（机器人台词 / AI 建议 /
+   * 人设）按语言各备一套。
+   * ================================================================ */
+
+  var LANG_KEY = 'wuxing_lang_v1';
+  function getLang() {
+    try { return localStorage.getItem(LANG_KEY) || 'zh'; } catch (e) { return 'zh'; }
+  }
+  function isEn() { return getLang() === 'en'; }
+  function setLang(l) {
+    try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+    document.documentElement.setAttribute('lang', l === 'en' ? 'en' : 'zh-CN');
+    walkAll();
+    refreshEntryUI();
+    if (state.panel) renderPanel();
+  }
+
+  var CN2EN_EL = { '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water' };
+  var ZH2EN = {
+    '五行纳音 · 本命饮品': 'Wu Xing Na Yin · Signature Drink',
+    '五行纳音 · 本命饮品测试': 'Wu Xing Na Yin · Signature Drink Test',
+    '欢迎': 'Welcome',
+    '请输入你的名字开始测试': 'Enter your name to begin the test',
+    '你的名字': 'Your name',
+    '进入测试': 'Start the Test',
+    '开启哲思之旅': 'Begin the Journey',
+    '本测试共 5 题，约需半分钟': '5 questions, about 30 seconds',
+    '基于中国传统五行纳音理论': 'Based on traditional Chinese Na Yin theory',
+    '探索属于你的本命饮品': 'Discover your signature drink',
+    '探索你的五行属性 · 发现本命饮品': 'Explore your five elements · Find your signature drink',
+    '你好，': 'Hi, ',
+    '的': "'s",
+    '纳音：': 'Na Yin: ',
+    '五行属性分布': 'Five Elements Distribution',
+    '温度': 'Temp',
+    '气泡': 'Bubbles',
+    '最佳伴侣': 'Best Match',
+    '合拍': 'In Sync',
+    '❤️ 已合拍': '❤️ In Sync',
+    '本命音乐': 'Signature Music',
+    '行本命曲': ' Element Melody',
+    '长按保存': 'Hold to Save',
+    '松开保存': 'Release to Save',
+    '图片已保存！': 'Image saved!',
+    '重新测试': 'Retake Test',
+    '选择最符合你内心的答案': 'Choose the answer closest to your heart',
+    '选择一种自然景象': 'Choose a natural scene',
+    '悬停预览，点击选择': 'Hover to preview · Click to select',
+    '请选择一种色彩': 'Pick a color',
+    '你的出生月份在哪个时段？': 'When were you born?',
+    '你最喜欢的色彩系列是？': 'Which color palette speaks to you?',
+    '你更偏爱哪种自然气息？': 'Which natural scent do you prefer?',
+    '你觉得自己更像哪种自然景象？': 'Which natural scene are you most like?',
+    '你更偏爱哪种温度的环境？': 'Which environment temperature suits you?',
+    '春季（2-4月）—— 万物复苏，生机勃勃': 'Spring (Feb-Apr) — Everything awakens',
+    '夏季（5-7月）—— 骄阳似火，热情奔放': 'Summer (May-Jul) — Blazing with passion',
+    '秋季（8-10月）—— 金风送爽，收获沉淀': 'Autumn (Aug-Oct) — Crisp and rewarding',
+    '冬季（11-1月）—— 寒藏万物，静水流深': 'Winter (Nov-Jan) — Still waters run deep',
+    '春': 'Spring', '夏': 'Summer', '秋': 'Autumn', '冬': 'Winter',
+    '2-4月': 'Feb-Apr', '5-7月': 'May-Jul', '8-10月': 'Aug-Oct', '11-1月': 'Nov-Jan',
+    '青绿色系 —— 如翠竹、青苔': 'Green — Bamboo and moss',
+    '红橙色系 —— 如晚霞、火焰': 'Red-Orange — Sunset and flame',
+    '黄棕色系 —— 如大地、琥珀': 'Amber — Earth and amber',
+    '白银色系 —— 如月光、霜雪': 'Silver — Moonlight and frost',
+    '蓝黑色系 —— 如深海、夜空': 'Blue-Black — Deep sea and night sky',
+    '青绿': 'Green', '红橙': 'Red-Orange', '黄棕': 'Amber', '白银': 'Silver', '蓝黑': 'Blue-Black',
+    '如翠竹、青苔': 'Bamboo, moss', '如晚霞、火焰': 'Sunset, flame', '如大地、琥珀': 'Earth, amber',
+    '如月光、霜雪': 'Moonlight, frost', '如深海、夜空': 'Deep sea, night sky',
+    '松林清香 —— 带着晨露的冷冽': 'Pine Forest — Crisp morning dew',
+    '海风咸味 —— 夹杂着浪花的水汽': 'Sea Breeze — Salted mist',
+    '炭火暖意 —— 混合着木柴的烟熏': 'Charcoal — Woody smoke',
+    '泥土芬芳 —— 雨后大地的醇厚': 'Petrichor — Earth after rain',
+    '矿石冷香 —— 洞穴深处的清冽': 'Mineral — Cool cave air',
+    '松林清香': 'Pine Forest', '海风咸味': 'Sea Breeze', '炭火暖意': 'Charcoal', '泥土芬芳': 'Petrichor', '矿石冷香': 'Mineral',
+    '森林 —— 静谧深邃，生生不息': 'Forest — Quiet and alive',
+    '海洋 —— 包容广阔，变幻莫测': 'Ocean — Vast and ever-changing',
+    '火山 —— 热烈奔放，能量涌动': 'Volcano — Intense and alive',
+    '田野 —— 踏实厚重，滋养万物': 'Fields — Grounded and nourishing',
+    '金属矿脉 —— 坚韧锐利，内敛锋芒': 'Metal Vein — Sharp and reserved',
+    '森林': 'Forest', '海洋': 'Ocean', '火山': 'Volcano', '田野': 'Fields', '金属': 'Metal',
+    '温暖如春 —— 阳光洒落，身心舒展': 'Warm — Sunshine on your skin',
+    '凉爽宜人 —— 微风拂面，头脑清明': 'Cool — A clear, gentle breeze',
+    '温润中和 —— 不冷不热，恰到好处': 'Mild — Just right, never extreme',
+    '温暖如春': 'Warm Spring-like', '凉爽宜人': 'Cool & Fresh', '温润中和': 'Mild & Balanced',
+    '温热': 'Warm', '清冷': 'Cool', '中性': 'Neutral',
+    '无汽': 'Still', '微汽': 'Light', '中汽': 'Medium', '强汽': 'Strong',
+    '青柚乌龙': 'Yuzu Oolong', '松针青梅': 'Pine Plum', '赤霞血橙': 'Blood Orange',
+    '暖姜红茶': 'Ginger Black Tea', '玄米柠檬': 'Genmai Lemon', '燕麦可可': 'Oat Cocoa',
+    '茉莉汤力': 'Jasmine Tonic', '轻咖汤力': 'Coffee Tonic', '海盐白桃': 'Sea Salt Peach',
+    '椰青荔枝': 'Coconut Lychee', '青桔乳酸': 'Calamansi Yogurt', '紫苏话梅': 'Shiso Plum',
+    '杨柳木': 'Willow Wood', '松柏木': 'Pine Cedar', '天上火': 'Celestial Fire', '山下火': 'Foothill Fire',
+    '大驿土': 'Post Road Earth', '城头土': 'City Wall Earth', '钗钏金': 'Hairpin Gold', '海中金': 'Sea Gold',
+    '大海水': 'Ocean Water', '大溪水': 'Stream Water',
+    '泉中水 + 石榴木': 'Spring Water + Pomegranate Wood', '涧下水 + 路旁土': 'Ravine Water + Roadside Earth',
+    '如春日杨柳般柔韧清新，青柚的酸爽与乌龙的醇厚完美融合。': 'Flexible and fresh like spring willow — the tang of yuzu blends perfectly with oolong.',
+    '你如杨柳木般柔韧有余，善于在变化中找到平衡。建议在生活中多尝试新事物，保持开放心态，你的适应能力是你的最大优势。': 'Like willow wood, you bend without breaking and thrive on change. Stay open and try new things — adaptability is your superpower.',
+    '如苍松翠柏般坚韧不拔，青梅的酸涩中藏着岁月的回甘。': 'Resilient as evergreen pine — tart plum with a sweet finish.',
+    '你如松柏木般坚韧不拔，有着超乎常人的毅力。建议适当放松自己，不必总是追求完美，偶尔的柔软也是一种力量。': 'Like pine and cedar, you have uncommon perseverance. Allow yourself to relax — softness is also strength.',
+    '如天际晚霞般热烈绚烂，血橙的浓郁中燃烧着生命的激情。': 'Blazing like the evening sky — blood orange burns with life.',
+    '你如天上火般热情奔放，充满感染力。建议学会控制情绪的节奏，将热情转化为持久的动力，而非一时的燃烧。': 'Like celestial fire, your passion is contagious. Pace yourself and turn sparks into lasting drive.',
+    '如山间篝火般温暖治愈，姜的辛辣与红茶的醇厚交织成冬日暖阳。': 'Warm as a mountain campfire — ginger spice woven into black tea.',
+    '你如山下火般温暖可靠，是身边人的避风港。建议也要学会照顾自己，不要将所有温暖都给予他人而忽略了自己。': 'Like foothill fire, you are a haven for others. Remember to keep some warmth for yourself.',
+    '如大地般厚重踏实，玄米的香气与柠檬的清新碰撞出独特的层次感。': 'Grounded as the earth — roasted grain meets bright lemon.',
+    '你如大驿土般踏实稳重，是值得信赖的伙伴。建议偶尔跳出舒适区，尝试一些冒险，你会发现自己更多的可能性。': 'Like post road earth, you are dependable. Step out of your comfort zone — more of you awaits.',
+    '如城墙般坚固温暖，燕麦的绵密与可可的浓郁带来满满的幸福感。': 'Sturdy and warm as a city wall — oat and cocoa bring pure comfort.',
+    '你如城头土般守护力强，给人安全感。建议学会表达自己的脆弱，真实的连接比完美的保护更有力量。': 'Like city wall earth, you protect and shelter. Showing vulnerability builds truer bonds than perfect armor.',
+    '如金银首饰般精致优雅，茉莉的清芬在气泡中绽放出高贵的气质。': 'Refined as fine gold jewelry — jasmine blooms elegantly in the bubbles.',
+    '你如钗钏金般精致优雅，注重品质与细节。建议不要过于追求完美，有时候不完美才是生活最真实的美。': 'Like hairpin gold, you value quality and detail. Imperfection is the truest beauty.',
+    '如深海宝藏般神秘内敛，咖啡的深邃与汤力的清爽形成奇妙的对比。': 'Mysterious as deep-sea treasure — dark coffee meets crisp tonic.',
+    '你如海中金般内敛深沉，有着丰富的内在世界。建议多与他人分享你的想法，你的深度思考会给很多人带来启发。': 'Like gold in the sea, your inner world runs deep. Share your thoughts — your depth inspires others.',
+    '如大海般包容广阔，海盐的咸鲜与白桃的甜美在口中交织成诗。': 'Embracing as the ocean — sea salt and white peach weave like poetry.',
+    '你如大海水般包容广阔，总能接纳不同的声音。建议偶尔也需要为自己划定边界，温柔的坚定同样是一种智慧。': 'Like ocean water, you embrace every voice. Boundaries, gently held, are also wisdom.',
+    '如山间溪流般清澈灵动，椰青的甘甜与荔枝的芬芳带来热带风情。': 'Clear as a mountain stream — coconut sweet with lychee breeze.',
+    '你如大溪水般清澈灵动，带着自由不羁的气息。建议在流动中找准自己的方向，坚持能让你的才华真正落地。': 'Like stream water, you are clear and free-spirited. Root your talent with focus and it will flourish.',
+    '如泉水滋润林木般清新活泼，青桔的酸爽与乳酸的绵密相得益彰。': 'Fresh as spring water feeding the woods — calamansi meets creamy yogurt.',
+    '如涧水浸润大地般醇厚深沉，紫苏的芳香与话梅的酸甜回味无穷。': 'Deep as ravine water soaking the earth — shiso aroma with plum tang.',
+    '进入匹配池': 'Enter Match Pool',
+    '依五行生克 · 寻找你的有缘人': 'By the five elements · Find your match',
+    '匹配池 · 缘分推演中': 'Match Pool · Consulting the oracle',
+    '点击查看匹配池状态': 'Tap to view pool status',
+    '与有缘人聊天': 'Chat with your match',
+    '五行匹配池': 'Wu Xing Match Pool',
+    '匹配偏好': 'Matching Preferences',
+    '系统将依据五行生克为你寻找有缘人': 'We pair you by the generating and controlling cycles',
+    '你的性别与年龄': 'Your gender & age',
+    '你想找什么样的有缘人？': 'What kind of match are you looking for?',
+    '希望对方是（性别期望，会参与匹配）': 'Preferred gender (affects matching)',
+    '一句话签名（可选，展示给有缘人）': 'Bio (optional, shown to matches)',
+    '想找一位木行人一起看展 ☕': 'Looking for a Wood person to visit galleries with ☕',
+    '暂不': 'Not now',
+    '已进入匹配池，天机推演中…': 'In the pool — consulting the oracle…',
+    '已进入匹配池 · 在线匹配中': 'In the pool · Matching online',
+    '五行社区': 'Wu Xing Community',
+    '按本命五行分社区 · 同频的人都在这里发帖互动': 'Communities by your element · Post and connect',
+    '✦ 邀请一位有缘人入池（演示）': '✦ Invite a match into the pool (demo)',
+    '离开匹配池': 'Leave the Pool',
+    '结束这段缘分': 'End this bond',
+    '池中人数': 'In pool',
+    '等待缘分': 'Waiting',
+    '进行中的缘分': 'Active bonds',
+    '过往缘分': 'Past bonds',
+    '（我）': ' (you)',
+    '期望：': 'Looking for: ',
+    '天机推演中… 有缘人入池后即刻为你撮合': 'The oracle is working — you will be paired as matches arrive',
+    '池中暂时只有你一个人': 'You are the only one in the pool right now',
+    '点击下方「邀请有缘人」体验匹配': 'Tap below to invite a match and try it out',
+    '🎉 有缘人已出现：': '🎉 Your match has appeared: ',
+    '✦ 一位有缘人正在入池…': '✦ A match is entering the pool…',
+    '✦ 一位有缘人悄悄进入了匹配池': '✦ Someone quietly entered the pool',
+    '匹配成功': 'Matched!',
+    '天机已为你们牵线': 'The oracle has paired you',
+    '合拍度': 'Sync',
+    '继续等待': 'Keep Waiting',
+    '开始聊天': 'Start Chat',
+    '五行有缘人出现了 ✦': 'Your Wu Xing match appeared ✦',
+    '结束聊天': 'End Chat',
+    '确认结束？': 'Sure?',
+    '发送': 'Send',
+    '说点什么…': 'Say something…',
+    '善意交流 · 随时可结束': 'Be kind · End anytime',
+    '点击建议可填入输入框 · 随时可结束': 'Tap a suggestion to fill the box · End anytime',
+    '✨ AI 话题助手 · 依五行与上下文点拨': '✨ AI Copilot · Five-element aware',
+    '换一批': 'More',
+    '✦ 大模型正在为你斟酌话题…': '✦ The LLM is crafting suggestions…',
+    '你已结束这段聊天': 'You ended this chat',
+    '对方已结束这段聊天': 'They ended this chat',
+    '五行流转，缘分不散 · 有缘再会': 'The elements keep flowing — until fate meets again',
+    '—— 聊天已结束，五行流转，缘分不散 ——': '—— Chat ended. The elements keep flowing ——',
+    '聊天已结束 · 有缘再会 🌿': 'Chat ended · See you when fate allows 🌿',
+    '💬 对方结束了这段聊天 · 有缘再会': '💬 They ended the chat · See you around',
+    '在「木行社区」说点什么… 发布后同频的人都能看到': 'Say something in the Wood community…',
+    '的身份发帖': ' identity',
+    '发帖': 'Post',
+    '评论': 'Reply',
+    '✨AI 代写': '✨AI write',
+    '✦ AI 正在构思…': '✦ AI is drafting…',
+    '先写点什么吧 ✍️': 'Write something first ✍️',
+    '友善评论…': 'Kind words…',
+    '这个社区还没有帖子': 'No posts here yet',
+    '来抢占第一层楼吧 ✦': 'Be the first to post ✦',
+    '—— 同气相求 · 同声相应 ——': '—— Kindred spirits, one voice ——',
+    '刚刚': 'just now',
+    '☁️ 接入云端，匹配真实用户': '☁️ Go online — match real users',
+    '接入云端': 'Go online',
+    '☁️ 在线模式': '☁️ Online',
+    '本地模式': 'Local mode',
+    '登录 · 在线模式': 'Sign in · Online mode',
+    '注册 / 登录后，你的五行档案与匹配都保存在云端数据库': 'Sign up and your profile & matches live in the cloud',
+    '邮箱': 'Email',
+    '密码（至少 6 位）': 'Password (min 6 chars)',
+    '登录': 'Sign in',
+    '注册': 'Sign up',
+    '断开云端连接（回到本地模式）': 'Disconnect (back to local mode)',
+    '退出登录': 'Sign out',
+    '完成': 'Done',
+    '在线模式': 'Online mode',
+    '当前账号：': 'Account: ',
+    '✓ 注册 / 登录真实账号': '✓ Real account sign-up / sign-in',
+    '✓ 测试结果保存到云端数据库，换设备登录即可恢复': '✓ Results saved to the cloud — restore on any device',
+    '✓ 与全球真实用户互相匹配、聊天、逛社区': '✓ Match, chat and socialize with real users',
+    '接入真实大模型': 'Connect a Real LLM',
+    '🤖 接入真实大模型（聊天更聪明）': '🤖 Connect a real LLM (smarter chat)',
+    '聊天回复与 AI 话题助手将由大模型生成': 'Chat replies and AI suggestions will come from an LLM',
+    '接口地址（OpenAI 兼容，含 /v1）': 'API base URL (OpenAI-compatible, incl. /v1)',
+    'API Key（仅保存在你自己的浏览器）': 'API key (stored only in your browser)',
+    '模型名称': 'Model name',
+    '保存': 'Save',
+    '测试连接': 'Test',
+    '当前状态：': 'Status: ',
+    '未接入 · 使用本地模拟回复': 'Not connected · local simulated replies',
+    '兼容所有 OpenAI 格式接口（OpenAI / DeepSeek / Kimi / 智谱 GLM / 通义 / 本地 Ollama 等）。Key 只存本机浏览器，请求由浏览器直连你填的服务商。未接入时，机器人使用本地模拟回复。': 'Works with any OpenAI-compatible API (OpenAI / DeepSeek / Kimi / GLM / Qwen / local Ollama). The key never leaves your browser; requests go straight to your provider. Without it, matches reply with the built-in local engine.',
+    '等待中': 'Waiting',
+    '已匹配': 'Matched',
+    '男': 'M', '女': 'F', '保密': 'Secret', '不限': 'Any', '男生': 'Men', '女生': 'Women',
+    '朋友': 'Friends', '学习搭子': 'Study Buddy', '饭搭子': 'Foodie Buddy', '随缘': 'Open to Fate',
+    '结识气味相投的朋友': 'Meet like-minded friends',
+    '一起自习打卡监督': 'Study together, keep each other on track',
+    '干饭路上不孤单': 'Never eat alone again',
+    '一切交给天意安排': 'Let fate decide',
+    '年龄': 'Age', '岁': ' yrs',
+    '例：想找一位木行人一起看展 ☕': 'e.g. Looking for a Wood person to visit galleries with ☕',
+    '有缘人': 'Your match',
+    '匹配池': 'Match Pool',
+    '❤️': '❤️',
+    '木': 'Wood', '火': 'Fire', '土': 'Earth', '金': 'Metal', '水': 'Water',
+    '，能量滋养、越处越旺（相生）': ' — energy flows and grows (Generating)',
+    '，对方旺你、彼此成就（相生）': ' — they lift you up (Generating)',
+    '，互补制衡、需要磨合（相克）': ' — complementary tension (Controlling)',
+    '行，气质相投（同气相求）': ' of the same element — kindred temperament',
+    '双方都随缘，一切刚刚好': 'Both open to fate — it just fits',
+    '一方随缘，来者皆是缘': 'One of you is open to fate — every meeting counts',
+    '偏好不同，靠五行缘分补足': 'Different goals — the elements will bridge it',
+    '性别期待相符，第一眼就对味': 'Gender expectations align — instant chemistry',
+    '一温一凉，寒温互补': 'One warm, one cool — perfect balance',
+    '气泡口感相同，喝到一块儿': 'Same sparkle preference — you drink in sync',
+    ' 岁 & ': ' & ',
+    ' 岁），有共同话题': ' yrs) — plenty to talk about',
+    '」，心意一致': ' — minds meet',
+    '共同爱好，话题不愁': 'Shared interests — conversation flows',
+    '五行关系：': 'Element relation: ',
+    '☁️ 已登录 · 在线模式（': '☁️ Signed in · online (',
+    '）': ')',
+    '已退出登录 · 本地模式': 'Signed out · local mode',
+    'Project URL': 'Project URL',
+    'anon public key': 'anon public key',
+    '保存并连接': 'Save & Connect',
+    '两项都要填写': 'Both fields are required',
+    '连接中…': 'Connecting…',
+    '✓ 连接成功！在下方登录或注册账号': '✓ Connected! Sign in or sign up below',
+    '我知道了': 'Got it'
+  };
+  var EN2ZH = {};
+  Object.keys(ZH2EN).forEach(function (k) {
+    var v = ZH2EN[k];
+    if (!(v in EN2ZH)) EN2ZH[v] = k;
+  });
+
+  var RULES_EN = [
+    { re: /^([木火土金水])生([木火土金水])( · 五行相生)?$/, en: function (m) { return CN2EN_EL[m[1]] + ' generates ' + CN2EN_EL[m[2]] + (m[3] ? ' (Generating Cycle)' : ''); } },
+    { re: /^([木火土金水])克([木火土金水])( · 相克制衡)?$/, en: function (m) { return CN2EN_EL[m[1]] + ' controls ' + CN2EN_EL[m[2]] + (m[3] ? ' (Controlling Cycle)' : ''); } },
+    { re: /^([木火土金水])([木火土金水])同气( · 同气相求)?$/, en: function (m) { return CN2EN_EL[m[1]] + ' & ' + CN2EN_EL[m[2]] + (m[3] ? ' · Kindred Spirits' : ''); } },
+    { re: /[木火土金水]\d/g, en: function (m) { return CN2EN_EL[m[0]] + ' ' + m[1]; } },
+    { re: /^选择 (.+)$/, en: function (m) { return 'Select ' + m[1]; } },
+    { re: /^([木火土金水])行/, en: function (m) { return CN2EN_EL[m[1]]; } },
+    { re: /^✦ 由 (.+) 生成$/, en: function (m) { return '✦ Generated by ' + m[1]; } },
+    { re: /^✦ 已发布到 (.)行社区$/, en: function (m) { return '✦ Posted to the ' + CN2EN_EL[m[1]] + ' community'; } },
+    { re: /^(\d+) 分钟前$/, en: function (m) { return m[1] + ' min ago'; } },
+    { re: /^(\d+) 小时前$/, en: function (m) { return m[1] + ' h ago'; } },
+    { re: /^(\d+) 天前$/, en: function (m) { return m[1] + ' d ago'; } },
+    { re: /^都在找「(.+)」，心意一致$/, en: function (m) { return 'Both looking for ' + m[1] + ' — minds meet'; } },
+    { re: /^年龄相仿（(\d+) 岁 & (\d+) 岁），有共同话题$/, en: function (m) { return 'Close in age (' + m[1] + ' & ' + m[2] + ' yrs) — plenty to talk about'; } },
+    { re: /^共同爱好：(.+)$/, en: function (m) { return 'Shared interests: ' + m[1] + ' — conversation flows'; } },
+    { re: /^五行关系：(.+)$/, en: function (m) { return 'Element relation: ' + m[1]; } },
+    { re: /^纳音 · (.+)$/, en: function (m) { return 'Na Yin · ' + (ZH2EN[m[1]] || m[1]); } },
+    { re: /^—— 五行流转 · 缘分天定 ——$/, en: '—— The elements flow · Fate decides ——' },
+    { re: /^为你们牵线/g, en: 'paired you' }
+  ];
+  var RULES_ZH = [
+    { re: /^(Wood|Fire|Earth|Metal|Water) generates (Wood|Fire|Earth|Metal|Water)( \(Generating Cycle\))?$/, zh: function (m) { return cnOf(m[1]) + '生' + cnOf(m[2]) + (m[3] ? ' · 五行相生' : ''); } },
+    { re: /^(Wood|Fire|Earth|Metal|Water) controls (Wood|Fire|Earth|Metal|Water)( \(Controlling Cycle\))?$/, zh: function (m) { return cnOf(m[1]) + '克' + cnOf(m[2]) + (m[3] ? ' · 相克制衡' : ''); } },
+    { re: /^(Wood|Fire|Earth|Metal|Water) & (Wood|Fire|Earth|Metal|Water)( · Kindred Spirits)?$/, zh: function (m) { return cnOf(m[1]) + cnOf(m[2]) + '同气' + (m[3] ? ' · 同气相求' : ''); } },
+    { re: /^(Wood|Fire|Earth|Metal|Water) (\d)/g, zh: function (m) { return cnOf(m[1]) + m[2]; } },
+    { re: /^Select (.+)$/, zh: function (m) { return '选择 ' + m[1]; } },
+    { re: /^(Wood|Fire|Earth|Metal|Water)( · .+)$/, zh: function (m) { return cnOf(m[1]) + '行' + m[2]; } },
+    { re: /^✦ Generated by (.+)$/, zh: function (m) { return '✦ 由 ' + m[1] + ' 生成'; } },
+    { re: /^✦ Posted to the (Wood|Fire|Earth|Metal|Water) community$/, zh: function (m) { return '✦ 已发布到 ' + cnOf(m[1]) + '行社区'; } },
+    { re: /^(\d+) min ago$/, zh: function (m) { return m[1] + ' 分钟前'; } },
+    { re: /^(\d+) h ago$/, zh: function (m) { return m[1] + ' 小时前'; } },
+    { re: /^(\d+) d ago$/, zh: function (m) { return m[1] + ' 天前'; } },
+    { re: /^Element relation: (.+)$/, zh: function (m) { return '五行关系：' + m[1]; } },
+    { re: /^Na Yin · (.+)$/, zh: function (m) { return '纳音 · ' + (EN2ZH[m[1]] || m[1]); } },
+    { re: /^—— The elements flow · Fate decides ——$/, zh: '—— 五行流转 · 缘分天定 ——' }
+  ];
+  var EN2CN_EL = {}; Object.keys(CN2EN_EL).forEach(function (k) { EN2CN_EL[CN2EN_EL[k]] = k; });
+  function cnOf(en) { return EN2CN_EL[en] || en; }
+
+  function trText(s) {
+    if (!s || !s.trim()) return s;
+    if (isEn()) {
+      var v = ZH2EN[s.trim()];
+      if (v) return s.replace(s.trim(), v);
+      for (var i = 0; i < RULES_EN.length; i++) {
+        var out = s.replace(RULES_EN[i].re, RULES_EN[i].en);
+        if (out !== s) return out;
+      }
+    } else {
+      var v2 = EN2ZH[s.trim()];
+      if (v2) return s.replace(s.trim(), v2);
+      for (var j = 0; j < RULES_ZH.length; j++) {
+        var out2 = s.replace(RULES_ZH[j].re, RULES_ZH[j].zh);
+        if (out2 !== s) return out2;
+      }
+    }
+    return s;
+  }
+
+  function walkAll() {
+    if (!document.body) return;
+    try {
+      var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+      var updates = [], node;
+      while ((node = walker.nextNode())) {
+        var s = node.nodeValue;
+        if (!s || !s.trim()) continue;
+        var t = trText(s);
+        if (t !== s) updates.push([node, t]);
+      }
+      updates.forEach(function (u) { u[0].nodeValue = u[1]; });
+      $$('[placeholder],[alt],[title]').forEach(function (el) {
+        ['placeholder', 'alt', 'title'].forEach(function (attr) {
+          var v = el.getAttribute && el.getAttribute(attr);
+          if (v) {
+            var tv = trText(v);
+            if (tv !== v) el.setAttribute(attr, tv);
+          }
+        });
+      });
+      document.title = trText(document.title);
+    } catch (e) { /* 翻译层异常不影响应用 */ }
+  }
+
+  var walkQueued = false;
+  var i18nMo = new MutationObserver(function () {
+    if (!isEn() || walkQueued) return;
+    walkQueued = true;
+    // 用 setTimeout 防抖（rAF 在后台标签页会停摆）
+    setTimeout(function () { walkQueued = false; walkAll(); }, 120);
+  });
+
+  // 标签 EN 展示名
+  var TAG_EN = { '爬山': 'Hiking', '健身': 'Fitness', '电影': 'Movies', '追剧': 'Series', '摄影': 'Photography', '做饭': 'Cooking', '桌游': 'Board Games', 'K歌': 'Karaoke', '旅行': 'Travel', '读书': 'Reading', '游戏': 'Gaming', '撸猫': 'Cats', '遛狗': 'Dogs', '爵士乐': 'Jazz', '二次元': 'Anime', '咖啡续命': 'Coffee Addict', '夜猫子': 'Night Owl', '早睡星人': 'Early Bird', 'i人': 'Introvert', 'e人': 'Extrovert', '甜品控': 'Sweet Tooth', '球类运动': 'Ball Sports' };
+  function tagDisp(t) { return isEn() ? (TAG_EN[t] || t) : t; }
+
+  // 语言选择门（首次访问）+ 常驻切换按钮
+  function buildLangUI() {
+    var btn = document.createElement('button');
+    btn.id = 'wxm-lang-btn';
+    btn.textContent = isEn() ? '中文' : 'EN';
+    btn.addEventListener('click', function () {
+      setLang(isEn() ? 'zh' : 'en');
+      btn.textContent = isEn() ? '中文' : 'EN';
+    });
+    document.body.appendChild(btn);
+    if (!localStorage.getItem(LANG_KEY)) {
+      var gate = document.createElement('div');
+      gate.id = 'wxm-lang-gate';
+      gate.innerHTML = '<div class="wxm-gate-card">'
+        + '<div class="wxm-gate-logo">五行纳音</div>'
+        + '<div class="wxm-gate-sub">Wu Xing Na Yin · Signature Drink</div>'
+        + '<div class="wxm-gate-q">请选择语言 · Choose your language</div>'
+        + '<button type="button" data-l="zh">中文</button>'
+        + '<button type="button" data-l="en">English</button>'
+        + '</div>';
+      document.body.appendChild(gate);
+      $$('button', gate).forEach(function (b) {
+        b.addEventListener('click', function () {
+          var l = b.getAttribute('data-l');
+          try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+          gate.remove();
+          btn.textContent = isEn() ? '中文' : 'EN';
+          walkAll();
+        });
+      });
+    }
+    if (isEn()) walkAll();
+    document.documentElement.setAttribute('lang', isEn() ? 'en' : 'zh-CN');
+  }
+
+  /* ================================================================
    * 八、入池 / 离池 / 结束聊天 / 模拟有缘人
    * ================================================================ */
 
@@ -2196,9 +2646,9 @@
       if (me.age) age = Math.max(16, Math.min(60, me.age + randInt(-4, 4)));
     }
     // 真人化人设：职业 / 当前状态 / 标签 / 签名；标签有几率与我重合，制造共同话题
-    var job = pick(BOT_JOBS);
-    var status = pick(BOT_STATUS);
-    var tagline = pick(BOT_TAGLINES);
+    var job = pick(isEn() ? BOT_JOBS_EN : BOT_JOBS);
+    var status = pick(isEn() ? BOT_STATUS_EN : BOT_STATUS);
+    var tagline = pick(isEn() ? BOT_TAGLINES_EN : BOT_TAGLINES);
     var tags = [];
     if (me && me.tags && me.tags.length) tags.push(pick(me.tags));
     while (tags.length < 3) {
@@ -2473,6 +2923,8 @@
     seedCommunity();
     cloudInit(); // 配置了 Supabase 则进入在线模式（异步初始化）
     mo.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
+    buildLangUI();
+    i18nMo.observe(document.body, { childList: true, subtree: true, characterData: true });
     scheduleScan();
     // 心跳兜底：即使模块加载晚于 React 渲染（页面已静态、再无 DOM 变动），
     // 也能在 3 秒内补齐报告页 CTA 与入口状态

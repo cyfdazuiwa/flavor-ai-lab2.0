@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="UTF-8" />
+<script>
+  // 录制专用引导：提前设置 rAF 兜底标记，应用加载后使用 setTimeout 版 rAF，杜绝录制中自刷新
+  try { sessionStorage.setItem('wx_raf_fb', '1'); } catch (e) {}
+  location.replace('/');
+</script>
