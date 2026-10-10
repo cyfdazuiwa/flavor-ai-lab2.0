@@ -927,7 +927,7 @@
     + 'html[lang="en"] .wxm-orb{font-size:15px !important}'
     + 'html[lang="en"] .wxm-mini-orb{font-size:9px !important}'
     + 'html[lang="en"] #wxm-fab,html[lang="en"] #wxm-fab-comm{letter-spacing:0}'
-    + '#wxm-fab-comm{position:fixed;right:14px;bottom:74px;z-index:9997;display:none;align-items:center;gap:6px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:7px 11px;font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;box-shadow:3px 3px 0 rgba(44,44,44,.2);font-family:inherit}'
+    + '#wxm-fab-comm{position:fixed;right:12px;bottom:78px;z-index:9997;display:none;align-items:center;gap:4px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 rgba(44,44,44,.18);font-family:inherit}'
     + '#wxm-fab-comm:hover{background:#2C2C2C;color:#fff}'
     + '#wxm-fab-comm.show{display:flex}'
     + '.wxm-chan-row{display:flex;gap:6px;margin:14px 0 4px}'
@@ -2411,7 +2411,7 @@
     '💬 与有缘人聊天': '💬 Chat with your match',
     '⏳ 匹配池 · 缘分推演中': '⏳ Match Pool · consulting the oracle',
     '🔮 有缘人': '🔮 Your match',
-    '社区': 'Community',
+    '社区': 'Comm',
     // 气息 / 温度 / 景象短描述（答题轮播与卡片副标题）
     '混合着木柴的烟熏': 'Woody smoke',
     '带着晨露的冷冽': 'Crisp morning dew',
