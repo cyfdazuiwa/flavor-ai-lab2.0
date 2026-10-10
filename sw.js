@@ -1,5 +1,5 @@
 // Service Worker - 缓存静态资源，实现二次访问秒开
-const CACHE_NAME = 'flavor-ai-lab-v9';
+const CACHE_NAME = 'flavor-ai-lab-v11';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -44,7 +44,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // HTML 导航请求：网络优先，离线才回退缓存（避免更新后看到旧页面）
-  if (request.mode === 'navigate') {
+  if (request.mode === 'navigate' || url.pathname.includes('/matching/')) {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
