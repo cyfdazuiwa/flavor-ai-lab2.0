@@ -2488,6 +2488,21 @@
     { re: /青柚乌龙|松针青梅|赤霞血橙|暖姜红茶|玄米柠檬|燕麦可可|茉莉汤力|轻咖汤力|海盐白桃|椰青荔枝|青桔乳酸|紫苏话梅/g, en: function (m) { return ZH2EN[m] || m; } },
     { re: /找(朋友|学习搭子|饭搭子|随缘)/g, en: function (m, g1) { var M = { '朋友': 'Friends', '学习搭子': 'Study Buddy', '饭搭子': 'Foodie Buddy', '随缘': 'Open to Fate' }; return 'Looking for ' + (M[g1] || g1); } },
     { re: /(\d+)岁/g, en: function (m, g1) { return g1 + ' yrs'; } },
+    { re: /木行人集合/g, en: 'Wood folks assemble' },
+    { re: /火行兄弟看过来/g, en: 'Fire bros, over here' },
+    { re: /找学习搭子/g, en: 'Looking for a study buddy:' },
+    { re: /目标每天图书馆打卡 2 小时，坚持 21 天，来组队/g, en: 'goal: 2h of library time daily, 21 days straight — join me' },
+    { re: /有没有也是「/g, en: 'Any fellow "' },
+    { re: /」的？都说我们坚韧，但谁懂坚持背后的累啊/g, en: '" here? Everyone calls us resilient — who knew it would be this tiring' },
+    { re: /都说我们坚韧，但谁懂坚持背后的累啊/g, en: 'everyone calls us resilient — who knew it would be this tiring' },
+    { re: /试遍全城的茉莉汤力，有一家最像「本命」，想知道的评论区见/g, en: 'tried every Jasmine Tonic in town — one tastes just like the real thing, ask in the comments' },
+    { re: /最近单曲循环一首古琴曲，越听越静，推荐给同频的你/g, en: 'on repeat: a guqin piece that calms everything — for kindred souls' },
+    { re: /不卷不躺，安稳踏实/g, en: 'no grinding, no lying flat — steady and grounded' },
+    { re: /慢慢来，比较快/g, en: 'slowly is the fastest way' },
+    { re: /我在备考，一起互相监督/g, en: 'prepping for exams — let us keep each other accountable' },
+    { re: /戳中我了，最近正焦虑，谢谢/g, en: 'that hit home, I needed this — thank you' },
+    { re: /求地址/g, en: 'link please' },
+    { re: /私信发你/g, en: 'DMing you' },
     { re: /· 演示/g, en: '· demo' },
     { re: /（演示）/g, en: ' (demo)' },
     { re: /^(\d+) 帖$/, en: function (m, g1) { return g1 + (g1 === '1' ? ' post' : ' posts'); } },
@@ -2520,7 +2535,14 @@
     { re: /· demo/g, zh: '· 演示' },
     { re: /^(\d+) posts?$/, zh: function (m, g1) { return g1 + ' 帖'; } },
     { re: /Looking for (Friends|Study Buddy|Foodie Buddy|Open to Fate)/g, zh: function (m, g1) { var M = { 'Friends': '朋友', 'Study Buddy': '学习搭子', 'Foodie Buddy': '饭搭子', 'Open to Fate': '随缘' }; return '期望：' + M[g1]; } },
-    { re: / \(demo\)/g, zh: '（演示）' }
+    { re: / \(demo\)/g, zh: '（演示）' },
+    { re: /Wood folks assemble/g, zh: '木行人集合' },
+    { re: /Fire bros, over here/g, zh: '火行兄弟看过来' },
+    { re: /Looking for a study buddy:/g, zh: '找学习搭子：' },
+    { re: /goal: 2h of library time daily, 21 days straight — join me/g, zh: '目标每天图书馆打卡 2 小时，坚持 21 天，来组队' },
+    { re: /Any fellow "/g, zh: '有没有也是「' },
+    { re: /" here\? Everyone calls us resilient — who knew it would be this tiring/g, zh: '」的？都说我们坚韧，但谁懂坚持背后的累啊' },
+    { re: /slowly is the fastest way/g, zh: '慢慢来，比较快' }
   ];
   var EN2CN_EL = {}; Object.keys(CN2EN_EL).forEach(function (k) { EN2CN_EL[CN2EN_EL[k]] = k; });
   function cnOf(en) { return EN2CN_EL[en] || en; }
