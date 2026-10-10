@@ -927,7 +927,7 @@
     + 'html[lang="en"] .wxm-orb{font-size:15px !important}'
     + 'html[lang="en"] .wxm-mini-orb{font-size:9px !important}'
     + 'html[lang="en"] #wxm-fab,html[lang="en"] #wxm-fab-comm{letter-spacing:0}'
-    + '#wxm-fab-comm{position:fixed;right:16px;bottom:72px;z-index:9997;display:none;align-items:center;gap:8px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:9px 15px;font-size:13px;font-weight:700;letter-spacing:.08em;cursor:pointer;box-shadow:4px 4px 0 rgba(44,44,44,.22);font-family:inherit}'
+    + '#wxm-fab-comm{position:fixed;right:14px;bottom:74px;z-index:9997;display:none;align-items:center;gap:6px;border:2px solid #2C2C2C;background:#fff;color:#2C2C2C;padding:7px 11px;font-size:11px;font-weight:700;letter-spacing:.05em;cursor:pointer;box-shadow:3px 3px 0 rgba(44,44,44,.2);font-family:inherit}'
     + '#wxm-fab-comm:hover{background:#2C2C2C;color:#fff}'
     + '#wxm-fab-comm.show{display:flex}'
     + '.wxm-chan-row{display:flex;gap:6px;margin:14px 0 4px}'
@@ -1055,7 +1055,7 @@
 
     var fabComm = document.createElement('button');
     fabComm.id = 'wxm-fab-comm';
-    fabComm.innerHTML = '🏯 <span id="wxm-fab-comm-label">五行社区</span>';
+    fabComm.innerHTML = '🏯 <span id="wxm-fab-comm-label">社区</span>';
     fabComm.addEventListener('click', function () { openPanel('community'); });
     document.body.appendChild(fabComm);
 
@@ -2411,6 +2411,7 @@
     '💬 与有缘人聊天': '💬 Chat with your match',
     '⏳ 匹配池 · 缘分推演中': '⏳ Match Pool · consulting the oracle',
     '🔮 有缘人': '🔮 Your match',
+    '社区': 'Community',
     // 气息 / 温度 / 景象短描述（答题轮播与卡片副标题）
     '混合着木柴的烟熏': 'Woody smoke',
     '带着晨露的冷冽': 'Crisp morning dew',
