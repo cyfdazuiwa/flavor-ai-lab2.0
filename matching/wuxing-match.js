@@ -61,18 +61,18 @@
 
   // 12 种本命饮品档案（与主应用数据一致，用于模拟有缘人）
   var DRINKS = [
-    { id: 'qingyou-wulong',    name: '青柚乌龙', nayin: '杨柳木', wuxing: { wood: 3, fire: 0, earth: 0, metal: 0, water: 0 }, temp: '清冷', bubble: '无汽' },
-    { id: 'songzhen-qingmei',  name: '松针青梅', nayin: '松柏木', wuxing: { wood: 3, fire: 0, earth: 0, metal: 0, water: 0 }, temp: '清冷', bubble: '中汽' },
-    { id: 'chixia-xuecheng',   name: '赤霞血橙', nayin: '天上火', wuxing: { wood: 0, fire: 3, earth: 0, metal: 0, water: 0 }, temp: '温热', bubble: '强汽' },
-    { id: 'nuanjiang-hongcha', name: '暖姜红茶', nayin: '山下火', wuxing: { wood: 0, fire: 3, earth: 0, metal: 0, water: 0 }, temp: '温热', bubble: '中汽' },
-    { id: 'xuanmi-ningmeng',   name: '玄米柠檬', nayin: '大驿土', wuxing: { wood: 0, fire: 0, earth: 3, metal: 0, water: 0 }, temp: '中性', bubble: '中汽' },
-    { id: 'yanmai-kekou',      name: '燕麦可可', nayin: '城头土', wuxing: { wood: 0, fire: 0, earth: 3, metal: 0, water: 0 }, temp: '温热', bubble: '微汽' },
-    { id: 'moli-tangli',       name: '茉莉汤力', nayin: '钗钏金', wuxing: { wood: 0, fire: 0, earth: 0, metal: 3, water: 0 }, temp: '清冷', bubble: '中汽' },
-    { id: 'qingka-tangli',     name: '轻咖汤力', nayin: '海中金', wuxing: { wood: 0, fire: 0, earth: 0, metal: 3, water: 0 }, temp: '清冷', bubble: '强汽' },
-    { id: 'haiyan-baitao',     name: '海盐白桃', nayin: '大海水', wuxing: { wood: 0, fire: 0, earth: 0, metal: 0, water: 3 }, temp: '清冷', bubble: '中汽' },
-    { id: 'yeqing-lizhi',      name: '椰青荔枝', nayin: '大溪水', wuxing: { wood: 0, fire: 0, earth: 0, metal: 0, water: 3 }, temp: '清冷', bubble: '无汽' },
-    { id: 'qingju-rusuan',     name: '青桔乳酸', nayin: '泉中水 + 石榴木', wuxing: { wood: 1, fire: 0, earth: 0, metal: 0, water: 2 }, temp: '清冷', bubble: '微汽' },
-    { id: 'zisu-huamei',       name: '紫苏话梅', nayin: '涧下水 + 路旁土', wuxing: { wood: 0, fire: 0, earth: 1, metal: 0, water: 2 }, temp: '清冷', bubble: '中汽' }
+    { id: 'qingyou-wulong',    name: '青柚乌龙', nameEn: 'Yuzu Oolong', nayin: '杨柳木', wuxing: { wood: 3, fire: 0, earth: 0, metal: 0, water: 0 }, temp: '清冷', bubble: '无汽' },
+    { id: 'songzhen-qingmei',  name: '松针青梅', nameEn: 'Pine Plum', nayin: '松柏木', wuxing: { wood: 3, fire: 0, earth: 0, metal: 0, water: 0 }, temp: '清冷', bubble: '中汽' },
+    { id: 'chixia-xuecheng',   name: '赤霞血橙', nameEn: 'Blood Orange', nayin: '天上火', wuxing: { wood: 0, fire: 3, earth: 0, metal: 0, water: 0 }, temp: '温热', bubble: '强汽' },
+    { id: 'nuanjiang-hongcha', name: '暖姜红茶', nameEn: 'Ginger Black Tea', nayin: '山下火', wuxing: { wood: 0, fire: 3, earth: 0, metal: 0, water: 0 }, temp: '温热', bubble: '中汽' },
+    { id: 'xuanmi-ningmeng',   name: '玄米柠檬', nameEn: 'Genmai Lemon', nayin: '大驿土', wuxing: { wood: 0, fire: 0, earth: 3, metal: 0, water: 0 }, temp: '中性', bubble: '中汽' },
+    { id: 'yanmai-kekou',      name: '燕麦可可', nameEn: 'Oat Cocoa', nayin: '城头土', wuxing: { wood: 0, fire: 0, earth: 3, metal: 0, water: 0 }, temp: '温热', bubble: '微汽' },
+    { id: 'moli-tangli',       name: '茉莉汤力', nameEn: 'Jasmine Tonic', nayin: '钗钏金', wuxing: { wood: 0, fire: 0, earth: 0, metal: 3, water: 0 }, temp: '清冷', bubble: '中汽' },
+    { id: 'qingka-tangli',     name: '轻咖汤力', nameEn: 'Coffee Tonic', nayin: '海中金', wuxing: { wood: 0, fire: 0, earth: 0, metal: 3, water: 0 }, temp: '清冷', bubble: '强汽' },
+    { id: 'haiyan-baitao',     name: '海盐白桃', nameEn: 'Sea Salt Peach', nayin: '大海水', wuxing: { wood: 0, fire: 0, earth: 0, metal: 0, water: 3 }, temp: '清冷', bubble: '中汽' },
+    { id: 'yeqing-lizhi',      name: '椰青荔枝', nameEn: 'Coconut Lychee', nayin: '大溪水', wuxing: { wood: 0, fire: 0, earth: 0, metal: 0, water: 3 }, temp: '清冷', bubble: '无汽' },
+    { id: 'qingju-rusuan',     name: '青桔乳酸', nameEn: 'Calamansi Yogurt', nayin: '泉中水 + 石榴木', wuxing: { wood: 1, fire: 0, earth: 0, metal: 0, water: 2 }, temp: '清冷', bubble: '微汽' },
+    { id: 'zisu-huamei',       name: '紫苏话梅', nameEn: 'Shiso Plum', nayin: '涧下水 + 路旁土', wuxing: { wood: 0, fire: 0, earth: 1, metal: 0, water: 2 }, temp: '清冷', bubble: '中汽' }
   ];
 
   var BOT_NAMES = ['青梧', '望舒', '知许', '鹿鸣', '既白', '南乔', '温叙', '栖迟', '云岫', '竹西', '疏影', '兰舟', '扶苏', '清和', '拾星', '照野', '之遥', '晚棠', '屿安', '斯年', '听澜', '沐白', '之夏', '其琛', '亦安', '阮白', '叙白', '枝枝'];
@@ -96,6 +96,21 @@
     '咖啡因驱动型人类',
     '快乐最大，其他随缘',
     '收集日落和好听的歌'
+  ];
+  var BOT_JOBS_EN = ['Graphic Designer', 'Grad Student', 'Backend Engineer', 'Primary Teacher', 'Barista', 'Product Manager', 'Freelance Illustrator', 'Nurse', 'Video Editor', 'Fitness Coach', 'Architect', 'Vet', 'Bookstore Clerk', 'Geologist'];
+  var BOT_STATUS_EN = ['just off work', 'couch mode', 'at the library', 'slacking at work', 'fresh from the gym', 'binge-watching', 'traveling', 'late-night vibes'];
+  var BOT_TAGLINES_EN = [
+    'Becoming happier before becoming better',
+    'Grinding by day, dreaming by night',
+    'Life is a wilderness, not a track',
+    'Eat on time, travel monthly',
+    'Collecting sunsets and good songs',
+    'Years in, still shining',
+    'Going with the flow, on purpose',
+    'Broad interests, mediocre at all',
+    'Rather climb mountains than clocks',
+    'Powered by caffeine',
+    'Happiness first, the rest is bonus'
   ];
   var BOT_LINES_EN = {
     open: [
@@ -1653,7 +1668,7 @@
           if (state.panel !== 'chat' || state.matchId !== match.id) return;
           var still = getMyMatch();
           if (still && !still.endedAt && getChat(match.id).length === 0) {
-            appendChat(match.id, { from: partner.uid, name: partner.name, text: pick(BOT_LINES.open), at: now() });
+            appendChat(match.id, { from: partner.uid, name: partner.name, text: pick(isEn() ? BOT_LINES_EN.open : BOT_LINES.open), at: now() });
           }
         }, 1200);
       }
@@ -2853,31 +2868,36 @@
    * 九、报告页探测与入口注入
    * ================================================================ */
 
-  // 从报告页 DOM 解析当前用户的五行档案
+  // 从报告页 DOM 解析当前用户的五行档案（中/EN 界面均可识别）
   function parseResultProfile() {
     var root = document.getElementById('root');
     if (!root) return null;
+    var en = isEn();
     var text = root.innerText || '';
-    if (text.indexOf('纳音：') === -1) return null;
+    var nayinMarker = en ? 'Na Yin:' : '纳音：';
+    if (text.indexOf(nayinMarker) === -1) return null;
     var h1 = root.querySelector('h1');
     var drinkName = h1 ? h1.textContent.trim() : '';
-    var drink = DRINKS.filter(function (d) { return d.name === drinkName; })[0];
+    var drink = null;
+    for (var di = 0; di < DRINKS.length; di++) {
+      if (en ? DRINKS[di].nameEn === drinkName : DRINKS[di].name === drinkName) { drink = DRINKS[di]; break; }
+    }
     if (!drink) return null;
-    var nayin = (text.match(/纳音：\s*([^\n]+)/) || [])[1];
-    nayin = nayin ? nayin.trim() : drink.nayin;
+    var nayin = drink.nayin;
 
-    // 五行分布：纳音段落后的彩色行，形如「木3 火1」
+    // 五行分布：纳音段落后的彩色行，形如「木3 火1」/「Wood 3 Fire 1」
     var scores = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 };
     var ps = $$('p', root);
+    var KEY_ZH = { 木: 'wood', 火: 'fire', 土: 'earth', 金: 'metal', 水: 'water' };
+    var KEY_EN = { Wood: 'wood', Fire: 'fire', Earth: 'earth', Metal: 'metal', Water: 'water' };
     for (var i = 0; i < ps.length; i++) {
-      if (ps[i].textContent.indexOf('纳音：') > -1) {
+      if (ps[i].textContent.indexOf(nayinMarker) > -1) {
         var tagline = ps[i].nextElementSibling;
         if (tagline) {
-          var re = /[木火土金水](\d+)/g, m;
+          var re = en ? /(Wood|Fire|Earth|Metal|Water)\s*(\d+)/g : /[木火土金水](\d+)/g, m;
           while ((m = re.exec(tagline.textContent))) {
-            var ch = m[0][0];
-            var key = { 木: 'wood', 火: 'fire', 土: 'earth', 金: 'metal', 水: 'water' }[ch];
-            scores[key] = parseInt(m[1], 10) || 0;
+            var key = en ? KEY_EN[m[1]] : KEY_ZH[m[0][0]];
+            if (key) scores[key] = parseInt(m[2] || m[1], 10) || 0;
           }
         }
         break;
@@ -2887,12 +2907,12 @@
       scores = drink.wuxing; // 兜底：直接采用本命饮品的五行
     }
 
-    // 温度 / 气泡：卡片上的 label + 值
+    // 温度 / 气泡：卡片上的 label + 值（双语标签）
     var temp = drink.temp, bubble = drink.bubble;
     ps.forEach(function (p) {
       var t = p.textContent.trim();
-      if (t === '温度' && p.nextElementSibling) temp = p.nextElementSibling.textContent.trim();
-      if (t === '气泡' && p.nextElementSibling) bubble = p.nextElementSibling.textContent.trim();
+      if ((t === '温度' || t === 'Temp') && p.nextElementSibling) temp = p.nextElementSibling.textContent.trim();
+      if ((t === '气泡' || t === 'Bubbles') && p.nextElementSibling) bubble = p.nextElementSibling.textContent.trim();
     });
 
     var name = localStorage.getItem('wuxing_username') || '无名之辈';
@@ -2925,7 +2945,8 @@
     var btns = $$('button');
     var restart = null;
     for (var i = 0; i < btns.length; i++) {
-      if (btns[i].textContent.trim() === '重新测试') { restart = btns[i]; break; }
+      var bt = btns[i].textContent.trim();
+      if (bt === '重新测试' || bt === 'Retake Test') { restart = btns[i]; break; }
     }
     if (!restart) return;
     var cta = document.createElement('button');
