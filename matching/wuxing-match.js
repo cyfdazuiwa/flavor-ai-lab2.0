@@ -1852,7 +1852,8 @@
       + '<button class="wxm-x" data-close="1">✕</button>'
       + '<div class="wxm-pad">'
       + '<div class="wxm-title">五行社区</div>'
-      + '<div class="wxm-sub">按本命五行分社区 · 同频的人都在这里发帖互动</div>'
+      + '<div class="wxm-sub">按本命五行分社区 · 同频的人都在这里发帖互动'
+      + ' · <button type="button" id="wxm-comm-match" style="border:1.5px solid #2C2C2C;background:#fff;color:#2C2C2C;font-size:10px;font-weight:700;padding:2px 8px;cursor:pointer;font-family:inherit">🔮 去匹配有缘人</button></div>'
       + '<div class="wxm-chan-row">' + tabsHtml + '</div>'
       + composer
       + '<div id="wxm-feed">' + (feed || '<div class="wxm-empty">这个社区还没有帖子<br/>来抢占第一层楼吧 ✦</div>') + '</div>'
@@ -1864,6 +1865,11 @@
         state.channel = el.getAttribute('data-el');
         renderPanel();
       });
+    });
+    var commMatch = $('#wxm-comm-match', sheet);
+    if (commMatch) commMatch.addEventListener('click', function () {
+      if (getMe()) openPanel('pool');
+      else toast(isEn() ? 'Finish the test first — the match pool entry is on the report page' : '请先完成测试，再到报告页进入匹配池');
     });
 
     if (me) {
