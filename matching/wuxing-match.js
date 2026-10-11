@@ -1518,10 +1518,12 @@
 
   /* ---------- AI 话题助手 ---------- */
 
-  // 依据五行关系、双方档案与聊天上下文生成话题建议（纯前端规则引擎，不依赖外部服务）
+  // 依据五行关系、双方档案与聊天上下文生成话题建议（纯前端规则引擎，不依赖外部服务；中/EN 双套模板）
   function aiSuggest(match, me, partner, msgs, offset) {
+    var L = isEn();
     var bag = [];
     var rel = match.relation.label.split(' ·')[0];
+    var relEn = L ? trText(match.relation.label).split(' (')[0] : rel;
     var type = match.relation.type;
     var mineCount = msgs.filter(function (m) { return m.from === me.uid; }).length;
     var last = null;
@@ -1532,51 +1534,87 @@
 
     if (mineCount === 0) {
       // —— 破冰开场 ——
-      bag.push(
-        '你好呀！天机说我们' + rel + '，合拍 ' + match.score + '%，冒个泡认识一下 👋',
-        'Hi～看到你的本命饮品是' + partner.drink + '，我的是' + me.drink + '，一看就很搭',
-        (partner.tagline ? '签名写「' + partner.tagline + '」的人感觉很有意思！' : '你好呀，初次见面！') +
-          (partner.pref === 'meal' ? '有什么私藏美食推荐吗？🍜' : partner.pref === 'study' ? '最近在忙什么？一起打卡呀 📚' : '平时都喜欢做些什么？'),
-        type === 'sheng' ? '听说' + rel + '的人特别聊得来，来验证一下？😄' : '同为' + elChar(me.dominant) + '行人，感觉我们会是同类人',
-        '我先开个头：用三个词形容自己，你会选哪三个？'
-      );
+      if (L) {
+        bag.push(
+          'Hey! The oracle paired us — ' + relEn + ', ' + match.score + '% in sync. Nice to meet you 👋',
+          'Hi～ your signature drink is ' + tagDisp2(partner.drink) + ' and mine is ' + tagDisp2(me.drink) + ' — great match already',
+          (partner.tagline ? 'Loving your bio "' + partner.tagline + '"! ' : 'Hey there, first time talking! ') +
+            (partner.pref === 'meal' ? 'Any hidden food gems to recommend? 🍜' : partner.pref === 'study' ? 'What are you busy with lately? Let us check in together 📚' : 'What do you usually do for fun?'),
+          type === 'sheng' ? 'They say ' + relEn + ' pairs chat really well — let us verify 😄' : 'Same ' + elChar(me.dominant) + ' element — we might be the same kind of people',
+          'I will go first: describe yourself in three words?'
+        );
+      } else {
+        bag.push(
+          '你好呀！天机说我们' + rel + '，合拍 ' + match.score + '%，冒个泡认识一下 👋',
+          'Hi～看到你的本命饮品是' + partner.drink + '，我的是' + me.drink + '，一看就很搭',
+          (partner.tagline ? '签名写「' + partner.tagline + '」的人感觉很有意思！' : '你好呀，初次见面！') +
+            (partner.pref === 'meal' ? '有什么私藏美食推荐吗？🍜' : partner.pref === 'study' ? '最近在忙什么？一起打卡呀 📚' : '平时都喜欢做些什么？'),
+          type === 'sheng' ? '听说' + rel + '的人特别聊得来，来验证一下？😄' : '同为' + elChar(me.dominant) + '行人，感觉我们会是同类人',
+          '我先开个头：用三个词形容自己，你会选哪三个？'
+        );
+      }
     } else if (last) {
       // —— 接对方的话 ——
       var t = last.text || '';
-      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t)) {
-        bag.push('问到点了！我的答案是……不过我想先听听你的版本 😄', '哈哈让我想想～我觉得挺好的，你呢？');
+      if (/？|\?|吗[。！～!?？]?$|呢[。！～]?/.test(t) || /\?$/.test(t)) {
+        if (L) bag.push('Good question! My answer is… but I want to hear yours first 😄', 'Haha let me think… I think it is great — you?');
+        else bag.push('问到点了！我的答案是……不过我想先听听你的版本 😄', '哈哈让我想想～我觉得挺好的，你呢？');
       }
-      if (/喝|茶|奶茶|咖啡|饮品|饮料|可乐/.test(t)) {
-        bag.push('提到喝的我可就来劲了，下次约一杯？我知道' + me.drink + '很好喝的店 🧋', '看来我们对喝的品味很一致，改天一起探店呀');
+      if (/喝|茶|奶茶|咖啡|饮品|饮料|可乐|drink|coffee|tea/i.test(t)) {
+        if (L) bag.push('Now that you mention drinks — let us grab one? I know a great place for ' + me.drink + ' 🧋', 'Same taste in drinks — let us explore cafes together');
+        else bag.push('提到喝的我可就来劲了，下次约一杯？我知道' + me.drink + '很好喝的店 🧋', '看来我们对喝的品味很一致，改天一起探店呀');
       }
-      if (/吃|饭|美食|好吃|店|饿/.test(t)) {
-        bag.push('说到吃的我最有发言权，周末一起干饭？🍜', '我收藏了好几家店，就差一个饭搭子了（疯狂暗示）');
+      if (/吃|饭|美食|好吃|店|饿|food|eat/i.test(t)) {
+        if (L) bag.push('Food is my topic — weekend food trip? 🍜', 'I have a whole list of places saved, just missing a foodie buddy (hint hint)');
+        else bag.push('说到吃的我最有发言权，周末一起干饭？🍜', '我收藏了好几家店，就差一个饭搭子了（疯狂暗示）');
       }
-      if (/学|忙|累|工作|加班|考试|作业/.test(t)) {
-        bag.push('辛苦啦～累了就歇会儿，我陪你聊聊天 ☕', '忙归忙，也要记得按时喝水休息呀');
+      if (/学|忙|累|工作|加班|考试|作业|busy|tired|work|study/i.test(t)) {
+        if (L) bag.push('Take it easy — I am here to chat whenever you need ☕', 'Hang in there, and remember to stay hydrated 💪');
+        else bag.push('辛苦啦～累了就歇会儿，我陪你聊聊天 ☕', '忙归忙，也要记得按时喝水休息呀');
       }
-      if (/哈哈|嘻嘻|笑|😂|🤣|乐死/.test(t)) {
-        bag.push('哈哈哈哈跟你聊天太轻松了', '你还挺有意思的 😆 这波我接住了');
+      if (/哈哈|嘻嘻|笑|😂|🤣|乐死|哈哈|haha|lol/i.test(t)) {
+        if (L) bag.push('Hahaha you are genuinely funny', 'LOL chatting with you is so easy');
+        else bag.push('哈哈哈哈跟你聊天太轻松了', '你还挺有意思的 😆 这波我接住了');
       }
-      if (/再见|回聊|晚安|拜拜|先走/.test(t)) {
-        bag.push('嗯嗯回见～五行有缘，后会有期 🌙', '拜拜，今天聊得很开心！');
+      if (/再见|回聊|晚安|拜拜|先走|bye|see you|good night/i.test(t)) {
+        if (L) bag.push('See you — until fate meets again 🌙', 'Bye! Really enjoyed this');
+        else bag.push('嗯嗯回见～五行有缘，后会有期 🌙', '拜拜，今天聊得很开心！');
       }
       if (bag.length === 0) {
-        bag.push(
-          '嗯嗯有同感！对了，你平时有什么爱好？',
-          '这个话题有意思，你是怎么想到的？',
-          '感觉和你聊天特别顺，难怪五行' + rel,
-          '哈哈哈同意！那你周末一般怎么过？',
-          '说起来，你觉得这个测试准不准？我觉得' + elChar(me.dominant) + '行还挺像我的'
-        );
+        if (L) {
+          bag.push(
+            'Same here! By the way, any hobbies?',
+            'Interesting — how did you come up with that?',
+            'This chat flows so naturally — must be the ' + relEn,
+            'Haha agree! So how do you spend weekends?',
+            'BTW do you think the test is accurate? My ' + elChar(me.dominant) + ' feels right'
+          );
+        } else {
+          bag.push(
+            '嗯嗯有同感！对了，你平时有什么爱好？',
+            '这个话题有意思，你是怎么想到的？',
+            '感觉和你聊天特别顺，难怪五行' + rel,
+            '哈哈哈同意！那你周末一般怎么过？',
+            '说起来，你觉得这个测试准不准？我觉得' + elChar(me.dominant) + '行还挺像我的'
+          );
+        }
       }
       // 邀约收尾（按我的偏好）
-      bag.push(
-        me.pref === 'meal' ? '对了，周末有空吗？找家店一起干饭呀 🍜'
-          : me.pref === 'study' ? '要不要约个自习，互相监督打卡？📚'
-          : me.pref === 'friend' ? '聊得这么投缘，找个时间线下见一面？☕'
-          : '有缘的话，找个时间一起喝杯' + me.drink + '？🌌'
-      );
+      if (L) {
+        bag.push(
+          me.pref === 'meal' ? 'By the way, free this weekend? Let us grab food together 🍜'
+            : me.pref === 'study' ? 'Shall we book a study session and keep each other on track? 📚'
+            : me.pref === 'friend' ? 'This is going so well — let us meet up sometime? ☕'
+            : 'If fate allows, let us have a ' + tagDisp2(me.drink) + ' together? 🌌'
+        );
+      } else {
+        bag.push(
+          me.pref === 'meal' ? '对了，周末有空吗？找家店一起干饭呀 🍜'
+            : me.pref === 'study' ? '要不要约个自习，互相监督打卡？📚'
+            : me.pref === 'friend' ? '聊得这么投缘，找个时间线下见一面？☕'
+            : '有缘的话，找个时间一起喝杯' + me.drink + '？🌌'
+        );
+      }
     }
 
     // 去重后按批次轮换，每次取 3 条
