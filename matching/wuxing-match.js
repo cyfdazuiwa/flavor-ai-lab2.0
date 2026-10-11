@@ -1481,11 +1481,10 @@
       + '  <div class="wxm-title" style="margin-top:6px">匹配成功</div>'
       + '  <div class="wxm-sub">天机已为你们牵线 · ' + esc(match.relation.label) + '</div>'
       + '  <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:20px">'
-      + '    <div style="text-align:center;width:30%">'
-      + drinkImgHtml(me)
-      + orbHtml(me)
-      + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(me.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(tagDisp2(me.drink)) + '<br/>' + esc(gdText(me)) + '</div>'
+      + '    <div style="text-align:center;width:31%">'
+      + drinkImgHtml(me, 78)
+      + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(me.name) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:3px;min-height:26px">' + '<span style="color:' + elColor(me.dominant) + ';font-weight:700">' + elChar(me.dominant) + '</span> · ' + esc(tagDisp2(me.drink)) + '</div>'
       + tagsRow(me, { sm: true })
       + '    </div>'
       + '    <div class="wxm-ring">'
@@ -1495,11 +1494,10 @@
       + '      </svg>'
       + '      <div class="v"><b>' + match.score + '%</b><span>合拍度</span></div>'
       + '    </div>'
-      + '    <div style="text-align:center;width:30%">'
-      + drinkImgHtml(partner)
-      + orbHtml(partner)
-      + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(partner.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(tagDisp2(partner.drink)) + '<br/>' + esc(gdText(partner)) + '</div>'
+      + '    <div style="text-align:center;width:31%">'
+      + drinkImgHtml(partner, 78)
+      + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(partner.name) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:3px;min-height:26px">' + '<span style="color:' + elColor(partner.dominant) + ';font-weight:700">' + elChar(partner.dominant) + '</span> · ' + esc(tagDisp2(partner.drink)) + '</div>'
       + tagsRow(partner, { sm: true })
       + '    </div>'
       + '  </div>'
