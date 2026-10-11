@@ -695,38 +695,41 @@
     return ok(a.seekGender || 'any', b.gender) && ok(b.seekGender || 'any', a.gender);
   }
 
-  // 计算两人之间的关系与合拍度
+  // 计算两人之间的关系与合拍度（缘由文案按当前语言生成）
   function pairScore(a, b) {
+    var L = isEn();
     var da = a.dominant, db = b.dominant;
     var rel, delta, reasons = [];
+    var cn = function (k) { return L ? ({ wood: 'Wood', fire: 'Fire', earth: 'Earth', metal: 'Metal', water: 'Water' })[k] : elChar(k); };
     if (da === db) {
       rel = { type: 'tong', label: elChar(da) + elChar(db) + '同气 · 同气相求' };
-      delta = 20; reasons.push('同为' + elChar(da) + '行，气质相投（同气相求）');
+      delta = 20; reasons.push(L ? cn(da) + ' & ' + cn(da) + ' — kindred temperament (Same Element)' : '同为' + elChar(da) + '行，气质相投（同气相求）');
     } else if (SHENG[da] === db) {
       rel = { type: 'sheng', label: elChar(da) + '生' + elChar(db) + ' · 五行相生' };
-      delta = 28; reasons.push(elChar(da) + '生' + elChar(db) + '，能量滋养、越处越旺（相生）');
+      delta = 28; reasons.push(L ? cn(da) + ' generates ' + cn(db) + ' — energy flows, you grow together (Generating)' : elChar(da) + '生' + elChar(db) + '，能量滋养、越处越旺（相生）');
     } else if (SHENG[db] === da) {
       rel = { type: 'sheng', label: elChar(db) + '生' + elChar(da) + ' · 五行相生' };
-      delta = 26; reasons.push(elChar(db) + '生' + elChar(da) + '，对方旺你、彼此成就（相生）');
+      delta = 26; reasons.push(L ? cn(db) + ' generates ' + cn(da) + ' — they lift you up (Generating)' : elChar(db) + '生' + elChar(da) + '，对方旺你、彼此成就（相生）');
     } else if (KE[da] === db) {
       rel = { type: 'ke', label: elChar(da) + '克' + elChar(db) + ' · 相克制衡' };
-      delta = 8; reasons.push(elChar(da) + '克' + elChar(db) + '，互补制衡、需要磨合（相克）');
+      delta = 8; reasons.push(L ? cn(da) + ' controls ' + cn(db) + ' — complementary tension (Controlling)' : elChar(da) + '克' + elChar(db) + '，互补制衡、需要磨合（相克）');
     } else {
       rel = { type: 'ke', label: elChar(db) + '克' + elChar(da) + ' · 相克制衡' };
-      delta = 10; reasons.push(elChar(db) + '克' + elChar(da) + '，互补制衡、需要磨合（相克）');
+      delta = 10; reasons.push(L ? cn(db) + ' controls ' + cn(da) + ' — complementary tension (Controlling)' : elChar(db) + '克' + elChar(da) + '，互补制衡、需要磨合（相克）');
     }
 
     var score = 55 + delta;
 
     // 匹配偏好契合度
+    var P_EN = { friend: 'Friends', study: 'a Study Buddy', meal: 'a Foodie Buddy', suiyuan: 'Open to Fate' };
     if (a.pref === 'suiyuan' && b.pref === 'suiyuan') {
-      score += 9; reasons.push('双方都随缘，一切刚刚好');
+      score += 9; reasons.push(L ? 'Both open to fate — it just fits' : '双方都随缘，一切刚刚好');
     } else if (a.pref === b.pref) {
-      score += 10; reasons.push('都在找「' + PREF_LABEL[a.pref] + '」，心意一致');
+      score += 10; reasons.push(L ? 'Both looking for ' + (P_EN[a.pref] || a.pref) + ' — minds meet' : '都在找「' + PREF_LABEL[a.pref] + '」，心意一致');
     } else if (a.pref === 'suiyuan' || b.pref === 'suiyuan') {
-      score += 6; reasons.push('一方随缘，来者皆是缘');
+      score += 6; reasons.push(L ? 'One of you is open to fate — every meeting counts' : '一方随缘，来者皆是缘');
     } else {
-      score += 2; reasons.push('偏好不同，靠五行缘分补足');
+      score += 2; reasons.push(L ? 'Different goals — the elements will bridge it' : '偏好不同，靠五行缘分补足');
     }
 
     // 共同标签（兴趣 / 人格）：每个 +4，最多 +12
@@ -734,7 +737,7 @@
     var shared = aTags.filter(function (t) { return bTags.indexOf(t) > -1; });
     if (shared.length) {
       score += Math.min(12, shared.length * 4);
-      reasons.push('共同爱好：' + shared.slice(0, 3).join(' · ') + '，话题不愁');
+      reasons.push(L ? 'Shared interests: ' + shared.slice(0, 3).map(tagDisp).join(', ') : '共同爱好：' + shared.slice(0, 3).join(' · ') + '，话题不愁');
     }
 
     // 性别期望契合
@@ -742,24 +745,24 @@
     [[a.seekGender, b.gender], [b.seekGender, a.gender]].forEach(function (pair) {
       if (pair[0] !== 'any' && pair[1] !== 'secret') gdBonus += pair[0] === pair[1] ? 6 : 0;
     });
-    if (gdBonus > 0) { score += gdBonus; reasons.push('性别期待相符，第一眼就对味'); }
+    if (gdBonus > 0) { score += gdBonus; reasons.push(L ? 'Gender expectations align — instant chemistry' : '性别期待相符，第一眼就对味'); }
 
     // 年龄相近度
     if (a.age && b.age) {
       var gap = Math.abs(a.age - b.age);
-      if (gap <= 3) { score += 4; reasons.push('年龄相仿（' + a.age + ' 岁 & ' + b.age + ' 岁），有共同话题'); }
+      if (gap <= 3) { score += 4; reasons.push(L ? 'Close in age (' + a.age + ' & ' + b.age + ') — plenty to talk about' : '年龄相仿（' + a.age + ' 岁 & ' + b.age + ' 岁），有共同话题'); }
       else if (gap <= 8) { score += 2; }
-      else if (gap > 15) { score -= 4; reasons.push('年龄有些差距，恰好互补'); }
+      else if (gap > 15) { score -= 4; reasons.push(L ? 'A bigger age gap — complementary perspectives' : '年龄有些差距，恰好互补'); }
     }
 
     // 温度互补 / 气泡投缘
     var temps = [a.temp, b.temp];
     if (temps.indexOf('温热') > -1 && temps.indexOf('清冷') > -1) {
-      score += 5; reasons.push('一温一凉，寒温互补');
+      score += 5; reasons.push(L ? 'One warm, one cool — perfect balance' : '一温一凉，寒温互补');
     } else if (a.temp === b.temp) {
       score += 2;
     }
-    if (a.bubble && a.bubble === b.bubble) { score += 2; reasons.push('气泡口感相同，喝到一块儿'); }
+    if (a.bubble && a.bubble === b.bubble) { score += 2; reasons.push(L ? 'Same sparkle preference — you drink in sync' : '气泡口感相同，喝到一块儿'); }
 
     score = Math.max(0, Math.min(99, Math.round(score)));
     return { score: score, relation: rel, reasons: reasons };
@@ -1195,6 +1198,25 @@
     return '<span class="' + (size ? 'wxm-mini-orb' : 'wxm-orb') + '" style="background:' + c + '">' + esc(elChar(member.dominant)) + '</span>';
   }
 
+  // 饮品图片（按饮品名/ID 定位素材；找不到返回空）
+  function drinkImgHtml(member, size) {
+    var s = size || 56;
+    if (!member) return '';
+    var id = member.drinkId;
+    if (!id) {
+      var d = DRINKS.filter(function (x) { return x.name === member.drink || x.nameEn === member.drink; })[0];
+      if (d) id = d.id;
+    }
+    if (!id) return '';
+    return '<img src="./images/' + id + '.png" alt="" style="width:' + s + 'px;height:' + s + 'px;object-fit:contain;display:block;margin:0 auto 6px;pointer-events:none" />';
+  }
+  // 饮品名按当前语言显示
+  function tagDisp2(name) {
+    if (!isEn()) return name;
+    var d = DRINKS.filter(function (x) { return x.name === name; })[0];
+    return (d && d.nameEn) || name;
+  }
+
   // 标签迷你 chips（highlight：与我的共同标签）
   function tagsRow(m, opts) {
     var me = getMe() || {};
@@ -1459,10 +1481,11 @@
       + '  <div class="wxm-title" style="margin-top:6px">匹配成功</div>'
       + '  <div class="wxm-sub">天机已为你们牵线 · ' + esc(match.relation.label) + '</div>'
       + '  <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:20px">'
-      + '    <div style="text-align:center">'
+      + '    <div style="text-align:center;width:30%">'
+      + drinkImgHtml(me)
       + orbHtml(me)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(me.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(me.drink) + '<br/>' + esc(gdText(me)) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(me.dominant) + '行 · ' + esc(tagDisp2(me.drink)) + '<br/>' + esc(gdText(me)) + '</div>'
       + tagsRow(me, { sm: true })
       + '    </div>'
       + '    <div class="wxm-ring">'
@@ -1472,10 +1495,11 @@
       + '      </svg>'
       + '      <div class="v"><b>' + match.score + '%</b><span>合拍度</span></div>'
       + '    </div>'
-      + '    <div style="text-align:center">'
+      + '    <div style="text-align:center;width:30%">'
+      + drinkImgHtml(partner)
       + orbHtml(partner)
       + '      <div style="font-size:13px;font-weight:700;margin-top:8px;color:#2C2C2C">' + esc(partner.name) + '</div>'
-      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(partner.drink) + '<br/>' + esc(gdText(partner)) + '</div>'
+      + '      <div style="font-size:10px;color:#A8A29E;margin-top:2px">' + elChar(partner.dominant) + '行 · ' + esc(tagDisp2(partner.drink)) + '<br/>' + esc(gdText(partner)) + '</div>'
       + tagsRow(partner, { sm: true })
       + '    </div>'
       + '  </div>'
@@ -1484,8 +1508,8 @@
       + match.reasons.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('')
       + '  </ul>'
       + '  <div class="wxm-foot" style="margin-top:22px">'
-      + '    <button class="wxm-btn ghost" id="wxm-wait">继续等待</button>'
-      + '    <button class="wxm-btn" id="wxm-chat-now">开始聊天</button>'
+      + '    <button class="wxm-btn ghost" id="wxm-wait" style="letter-spacing:.03em;font-size:13px;padding:13px 4px;white-space:nowrap">继续等待</button>'
+      + '    <button class="wxm-btn" id="wxm-chat-now" style="letter-spacing:.03em;font-size:13px;padding:13px 4px;white-space:nowrap">开始聊天</button>'
       + '  </div>'
       + '</div>';
 
@@ -2455,6 +2479,8 @@
     '连接中…': 'Connecting…',
     '✓ 连接成功！在下方登录或注册账号': '✓ Connected! Sign in or sign up below',
     '我知道了': 'Got it',
+    '共同爱好，话题不愁': 'Shared interests — conversation flows',
+    '天机已为你们牵线 · ': 'The oracle has paired you · ',
     '🏯 五行社区': '🏯 Wu Xing Community',
     '🔮 匹配池': '🔮 Match Pool',
     '💬 与有缘人聊天': '💬 Chat with your match',
@@ -2524,6 +2550,13 @@
     { re: /^([木火土金水])生([木火土金水])( · 五行相生)?$/, en: function (m, g1, g2, g3) { return CN2EN_EL[g1] + ' generates ' + CN2EN_EL[g2] + (g3 ? ' (Generating Cycle)' : ''); } },
     { re: /^([木火土金水])克([木火土金水])( · 相克制衡)?$/, en: function (m, g1, g2, g3) { return CN2EN_EL[g1] + ' controls ' + CN2EN_EL[g2] + (g3 ? ' (Controlling Cycle)' : ''); } },
     { re: /^([木火土金水])([木火土金水])同气( · 同气相求)?$/, en: function (m, g1, g2, g3) { return CN2EN_EL[g1] + ' & ' + CN2EN_EL[g2] + (g3 ? ' · Kindred Spirits' : ''); } },
+    { re: /天机已为你们牵线/g, en: 'The oracle has paired you' },
+    { re: / · 五行相生/g, en: ' (Generating Cycle)' },
+    { re: / · 相克制衡/g, en: ' (Controlling Cycle)' },
+    { re: / · 同气相求/g, en: ' · Kindred Spirits' },
+    { re: /([木火土金水])生([木火土金水])/g, en: function (m, g1, g2) { return CN2EN_EL[g1] + ' generates ' + CN2EN_EL[g2]; } },
+    { re: /([木火土金水])克([木火土金水])/g, en: function (m, g1, g2) { return CN2EN_EL[g1] + ' controls ' + CN2EN_EL[g2]; } },
+    { re: /([木火土金水])([木火土金水])同气/g, en: function (m, g1, g2) { return CN2EN_EL[g1] + ' & ' + CN2EN_EL[g2]; } },
     { re: /([木火土金水])(\d)/g, en: function (m, g1, g2) { return CN2EN_EL[g1] + ' ' + g2; } },
     { re: /^选择 (.+)$/, en: function (m, g1) { return 'Select ' + (ZH2EN[g1] || g1); } },
     { re: /^([木火土金水])行/, en: function (m, g1) { return CN2EN_EL[g1] || g1; } },
@@ -2568,7 +2601,15 @@
     { re: /^(Wood|Fire|Earth|Metal|Water) generates (Wood|Fire|Earth|Metal|Water)( \(Generating Cycle\))?$/, zh: function (m, g1, g2, g3) { return cnOf(g1) + '生' + cnOf(g2) + (g3 ? ' · 五行相生' : ''); } },
     { re: /^(Wood|Fire|Earth|Metal|Water) controls (Wood|Fire|Earth|Metal|Water)( \(Controlling Cycle\))?$/, zh: function (m, g1, g2, g3) { return cnOf(g1) + '克' + cnOf(g2) + (g3 ? ' · 相克制衡' : ''); } },
     { re: /^(Wood|Fire|Earth|Metal|Water) & (Wood|Fire|Earth|Metal|Water)( · Kindred Spirits)?$/, zh: function (m, g1, g2, g3) { return cnOf(g1) + cnOf(g2) + '同气' + (g3 ? ' · 同气相求' : ''); } },
-    { re: /(Wood|Fire|Earth|Metal|Water) (\d)/g, zh: function (m, g1, g2) { return cnOf(g1) + g2; } },
+    { re: /The oracle has paired you/g, zh: '天机已为你们牵线' },
+    { re: / \(Generating Cycle\)/g, zh: ' · 五行相生' },
+    { re: / \(Controlling Cycle\)/g, zh: ' · 相克制衡' },
+    { re: / · Kindred Spirits/g, zh: ' · 同气相求' },
+    { re: /(Wood|Fire|Earth|Metal|Water) generates (Wood|Fire|Earth|Metal|Water)/g, zh: function (m, g1, g2) { return cnOf(g1) + '生' + cnOf(g2); } },
+    { re: /(Wood|Fire|Earth|Metal|Water) controls (Wood|Fire|Earth|Metal|Water)/g, zh: function (m, g1, g2) { return cnOf(g1) + '克' + cnOf(g2); } },
+    { re: /(Wood|Fire|Earth|Metal|Water) & (Wood|Fire|Earth|Metal|Water)/g, zh: function (m, g1, g2) { return cnOf(g1) + cnOf(g2) + '同气'; } },
+    { re: /Shared interests — conversation flows/g, zh: '共同爱好，话题不愁' }
+,    { re: /(Wood|Fire|Earth|Metal|Water) (\d)/g, zh: function (m, g1, g2) { return cnOf(g1) + g2; } },
     { re: /^Select (.+)$/, zh: function (m, g1) { return '选择 ' + g1; } },
     { re: /^(Wood|Fire|Earth|Metal|Water)行/, zh: function (m, g1) { return cnOf(g1) || g1; } },
     { re: /^✦ Generated by (.+)$/, zh: function (m, g1) { return '✦ 由 ' + g1 + ' 生成'; } },
