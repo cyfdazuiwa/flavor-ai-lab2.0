@@ -2593,6 +2593,10 @@
     { re: /私信发你/g, en: 'DMing you' },
     { re: /· 演示/g, en: '· demo' },
     { re: /（演示）/g, en: ' (demo)' },
+    { re: /系统每 (\d+) 秒扫描一次，依据五行生克自动撮合/g, en: function (m, g1) { return 'Scans every ' + g1 + 's — paired by the five-element cycles'; } },
+    { re: /依据五行生克自动撮合/g, en: 'paired by the five-element cycles' },
+    { re: /本地模式/g, en: 'Local mode' },
+    { re: /有缘人/g, en: 'your match' },
     { re: /^(\d+) 帖$/, en: function (m, g1) { return g1 + (g1 === '1' ? ' post' : ' posts'); } },
     { re: /期望：(朋友|学习搭子|饭搭子|随缘)/g, en: function (m, g1) { var M = { '朋友': 'Friends', '学习搭子': 'Study Buddy', '饭搭子': 'Foodie Buddy', '随缘': 'Open to Fate' }; return 'Looking for ' + M[g1]; } },
     { re: /^以 (.+)（(.)行）的身份发帖$/, en: function (m, g1, g2) { return 'Posting as ' + g1 + ' (' + CN2EN_EL[g2] + ')'; } }
