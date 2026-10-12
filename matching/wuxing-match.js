@@ -925,10 +925,13 @@
     + '.wxm-tagchip{border:1.5px solid #2C2C2C;background:#fff;color:#2C2C2C;font-size:11px;font-weight:700;padding:6px 9px;cursor:pointer;font-family:inherit}'
     + '.wxm-tagchip:hover{background:#F0F5F3}'
     + '.wxm-tagchip.sel{background:#2C2C2C;color:#fff}'
-    + '.wxm-ai{border-top:2px solid #2C2C2C;background:#F0F5F3;padding:8px 10px 10px}'
-    + '.wxm-ai .hd{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.1em;color:#5E8B7E;font-weight:700}'
+    + '.wxm-ai{border-top:2px solid #2C2C2C;background:#F0F5F3;padding:6px 10px 8px}'
+    + '.wxm-ai .hd{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.1em;color:#5E8B7E;font-weight:700;cursor:pointer;user-select:none}'
+    + '.wxm-ai .hd .tgl{font-size:9px;letter-spacing:.08em;opacity:.85}'
     + '.wxm-ai .hd button{border:1.5px solid #5E8B7E;background:#fff;color:#5E8B7E;font-size:10px;font-weight:700;padding:3px 8px;cursor:pointer}'
     + '.wxm-ai .hd button:hover{background:#5E8B7E;color:#fff}'
+    + '.wxm-ai.folded .wxm-ai-chips{display:none}'
+    + '.wxm-ai.folded{padding-bottom:6px}'
     + '.wxm-ai-chips{display:flex;flex-direction:column;gap:6px;margin-top:8px}'
     + '.wxm-ai-chip{text-align:left;border:1.5px solid #2C2C2C;background:#fff;padding:7px 10px;font-size:12px;color:#2C2C2C;cursor:pointer;line-height:1.5;font-family:inherit}'
     + '.wxm-ai-chip:hover{background:#2C2C2C;color:#fff}'
@@ -1647,6 +1650,16 @@
           if (!input) return;
           input.value = el.textContent;
           input.focus();
+          // 点选后自动收起建议，还聊天区空间
+          state.aiOpen = false;
+          var bar = $('#wxm-ai-bar');
+          if (bar) bar.classList.add('folded');
+          var chips = $('#wxm-ai-chips');
+          if (chips) chips.style.display = 'none';
+          var more = $('#wxm-ai-more');
+          if (more) more.style.display = 'none';
+          var tgl = $('#wxm-ai-tgl-txt');
+          if (tgl) tgl.textContent = isEn() ? '▼ open' : '▼ 展开';
         });
       });
     };
@@ -1697,9 +1710,14 @@
       + '  <div class="wxm-chat-body" id="wxm-chat-body"></div>'
       + (ended
         ? '<div class="wxm-ended">🌿 ' + (iEnded ? '你已结束这段聊天' : '对方已结束这段聊天') + '<br/><span style="font-size:10px;color:#A8A29E">五行流转，缘分不散 · 有缘再会</span></div>'
-        : '<div class="wxm-ai" id="wxm-ai-bar">'
-        + '  <div class="hd"><span>✨ AI 话题助手 · 依五行与上下文点拨</span><button id="wxm-ai-more">换一批</button></div>'
-        + '  <div class="wxm-ai-chips" id="wxm-ai-chips"></div>'
+        : '<div class="wxm-ai folded" id="wxm-ai-bar">'
+        + '  <div class="hd" id="wxm-ai-toggle"><span>✨ ' + (isEn() ? 'AI Copilot · tap for suggestions' : 'AI 话题助手 · 点击展开建议') + '</span>'
+        + '    <span style="display:flex;gap:6px;align-items:center">'
+        + '      <button type="button" id="wxm-ai-more" style="display:none">' + (isEn() ? 'More' : '换一批') + '</button>'
+        + '      <span class="tgl" id="wxm-ai-tgl-txt">' + (isEn() ? '▼ open' : '▼ 展开') + '</span>'
+        + '    </span>'
+        + '  </div>'
+        + '  <div class="wxm-ai-chips" id="wxm-ai-chips" style="display:none"></div>'
         + '</div>'
         + '<div class="wxm-endbar"><span class="hint">点击建议可填入输入框 · 随时可结束</span></div>'
         + '<div class="wxm-chat-foot">'
@@ -1723,10 +1741,20 @@
     $('#wxm-chat-back', sheet).addEventListener('click', function () { openPanel('pool'); });
 
     if (!ended) {
-      // AI 话题助手
-      state.aiOffset = 0;
-      renderAiChips();
-      $('#wxm-ai-more', sheet).addEventListener('click', function () {
+      // AI 话题助手：默认收起，点击头部展开/收起
+      state.aiOpen = false;
+      var aiBar = $('#wxm-ai-bar', sheet);
+      var setFold = function (open) {
+        state.aiOpen = open;
+        aiBar.classList.toggle('folded', !open);
+        $('#wxm-ai-chips', sheet).style.display = open ? 'flex' : 'none';
+        $('#wxm-ai-more', sheet).style.display = open ? 'inline-block' : 'none';
+        $('#wxm-ai-tgl-txt', sheet).textContent = open ? (isEn() ? '▲ fold' : '▲ 收起') : (isEn() ? '▼ open' : '▼ 展开');
+        if (open) renderAiChips();
+      };
+      $('#wxm-ai-toggle', sheet).addEventListener('click', function () { setFold(!state.aiOpen); });
+      $('#wxm-ai-more', sheet).addEventListener('click', function (e) {
+        e.stopPropagation();
         state.aiOffset = (state.aiOffset || 0) + 1;
         renderAiChips();
       });
